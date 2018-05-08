@@ -124,7 +124,7 @@ class Handler:
             label11.set_text('Field must be numeric.')
 
 
-def dialog1_run(title, labels, defaults):
+def dialog1_run(title, labels, defaults, tooltips):
     global argwindow
     global entry_objs
     global label_objs
@@ -132,6 +132,14 @@ def dialog1_run(title, labels, defaults):
     for i in range(6):
         label_objs[i].set_label(labels[i])
         entry_objs[i].set_text(defaults[i])
+        label_objs[i].set_tooltip_text(tooltips[i])
+        entry_objs[i].set_tooltip_text(tooltips[i])
+        if labels[i] == 'N/A':
+            label_objs[i].set_visible(False)
+            entry_objs[i].set_visible(False)
+        else:
+            label_objs[i].set_visible(True)
+            entry_objs[i].set_visible(True)
     argwindow.run()
     return [int(entry_objs[0].get_text(), 0), int(entry_objs[1].get_text(), 0), 
             int(entry_objs[2].get_text(), 0), int(entry_objs[3].get_text(), 0), 
@@ -177,9 +185,11 @@ def xmit_noop():
 def reset():
     global dialog1_xmit
     title = '"Reset" Arguments'
-    labels = ['Resets (16 bits)', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+    labels = ['Reset mask', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
     defaults = ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']
-    args = dialog1_run(title, labels, defaults)
+    tooltips = ['(16-bit) Bitmask indicating which spacecraft reset operations are to be performed.',
+                'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+    args = dialog1_run(title, labels, defaults, tooltips)
     if dialog1_xmit:
         tc_data = array.array('B', [0x04, 0x02])
         tc_data.append((args[0] & 0xFF00) >> 8)
@@ -197,9 +207,11 @@ def xmit_count():
 def xmit_health():
     global dialog1_xmit
     title = '"Transmit Health" Arguments'
-    labels = ['# Packets (0xFF means send all)', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+    labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
     defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00']
-    args = dialog1_run(title, labels, defaults)
+    tooltips = ['(8-bit) Number of Health Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
+                'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+    args = dialog1_run(title, labels, defaults, tooltips)
     if dialog1_xmit:
         tc_data = array.array('B', [0x02, 0x01])
         tc_data.append(args[0] & 0x00FF)
@@ -210,9 +222,11 @@ def xmit_health():
 def xmit_science():
     global dialog1_xmit
     title = '"Transmit Science" Arguments'
-    labels = ['# Packets (0xFF means send all)', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+    labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
     defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00']
-    args = dialog1_run(title, labels, defaults)
+    tooltips = ['(8-bit) Number of Science Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
+                'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+    args = dialog1_run(title, labels, defaults, tooltips)
     if dialog1_xmit:
         tc_data = array.array('B', [0x03, 0x01])
         tc_data.append(args[0] & 0x00FF)
@@ -223,9 +237,12 @@ def xmit_science():
 def read_mem():
     global dialog1_xmit
     title = '"Read Memory" Arguments'
-    labels = ['Start address (16-bit)', 'End address (16-bit)', 'N/A', 'N/A', 'N/A', 'N/A']
+    labels = ['Start address', 'End address', 'N/A', 'N/A', 'N/A', 'N/A']
     defaults = ['0x00F0', '0x00F3', '0x0000', '0x0000', '0x0000', '0x0000']
-    args = dialog1_run(title, labels, defaults)
+    tooltips = ['(16-bit) Start of memory address range to downlink.',
+                '(16-bit) End of memory address range to downlink.', 
+                'N/A', 'N/A', 'N/A', 'N/A']
+    args = dialog1_run(title, labels, defaults, tooltips)
     if dialog1_xmit:
         tc_data = array.array('B', [0x08, 0x02])
         tc_data.append((args[0] & 0xFF00) >> 8)
@@ -242,7 +259,11 @@ def write_mem():
     labels = ['Start address', 'End address', 
                 'Contents 0', 'Contents 1', 'Contents 2', 'Contents 3']
     defaults = ['0x00F0', '0x00F3', '0x0000', '0x0000', '0x0000', '0x0000']
-    args = dialog1_run(title, labels, defaults)
+    tooltips = ['(16-bit) Start of memory address range to uplink.',
+                '(16-bit) End of memory address range to uplink.  (Limited to four memory locations for testing.)',
+                '(16-bit) Memory contents', '(16-bit) Memory contents', 
+                '(16-bit) Memory contents', '(16-bit) Memory contents']
+    args = dialog1_run(title, labels, defaults, tooltips)
     if dialog1_xmit:
         tc_data = array.array('B', [0x07, 0x0C])
         for a in args:
@@ -258,7 +279,18 @@ def set_comms():
     labels = ['TM Window', 'XMIT Timeout', 
                 'ACK Timeout', 'Sequence Window', 'Spacecraft Sequence', 'GS Sequence']
     defaults = ['0x01', '0x04', '0x0A', '0x02', '0x0000', '0x0000']
-    args = dialog1_run(title, labels, defaults)
+    tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit '
+                + 'before waiting for an ACK.  Default: 0x01.',
+                '(8-bit) Number of unacknowledged transmit windows before the spacecraft ' 
+                + 'ceases transmission.  Default: 0x04.', 
+                '(8-bit) Number of seconds the spacecraft waits for an ACK or NAK ' 
+                + 'before retransmitting the last window.  Default: 0x0A.', 
+                '(8-bit) Maximum allowable difference between the expected and received ' 
+                + 'Sequence Number.  Default: 0x02.', 
+                '(16-bit) The next packet from the spacecraft should have this Sequence Number.', 
+                '(16-bit) The spacecraft should expect the next packet from the ground station ' 
+                + 'to have this Sequence Number.']
+    args = dialog1_run(title, labels, defaults, tooltips)
     if dialog1_xmit:
         tc_data = array.array('B', [0x0B, 0x08])
         for a in args[0:4]:
