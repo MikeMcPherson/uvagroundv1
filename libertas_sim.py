@@ -248,7 +248,7 @@ def main():
     spacecraft_key = json_return['libertas_key'].encode()
     ground_station_key = json_return['ground_station_key'].encode()
     
-    serial_obj = serial.Serial(serial_device_name, baudrate=4800)
+    serial_obj = serial.Serial(serial_device_name, baudrate=9600)
     
     while True:
         tc_packet = receive_serial(serial_obj)

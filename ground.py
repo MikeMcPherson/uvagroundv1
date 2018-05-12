@@ -48,8 +48,8 @@ GUI Handlers
 class Handler:
     
     def on_destroy(self, *args):
-        global receive_thread
-        global last_tc_packet
+        global textview_buffer
+        textview_buffer.insert(textview_buffer.get_end_iter(), "]\n}\n")
         save_file()
         Gtk.main_quit()
 
@@ -418,12 +418,18 @@ def write_buffer(buffer_filename):
 def display_packet():
     global textview
     global textview_buffer
+    global first_packet
     global display_queue
     global COMMAND_NAMES
     if display_queue.empty():
         pass
     else:
         packet = display_queue.get()
+        if first_packet:
+            textview_buffer.insert(textview_buffer.get_end_iter(), "{\n\"packets\" : [\n")
+            first_packet = False
+        else:
+            textview_buffer.insert(textview_buffer.get_end_iter(), ",\n")
         textview_buffer.insert(textview_buffer.get_end_iter(), "{\n")
         
         if (packet[0] & 0b00010000) == 0:
@@ -469,7 +475,7 @@ def display_packet():
         packet_list = []
         for p in packet[-32:]:
             packet_list.append("\"0x{:02X}\"".format(p))
-        packet_string = " ".join(map(str, packet_list))
+        packet_string = ", ".join(map(str, packet_list))
         textview_buffer.insert(textview_buffer.get_end_iter(), "    \"hmac_digest\":[")
         textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
         textview_buffer.insert(textview_buffer.get_end_iter(), "]\n")
@@ -667,6 +673,7 @@ def main():
     global ack_timeout
     global sequence_number_window
     global last_tc_packet
+    global first_packet
     global COMMAND_NAMES
     global COMMAND_CODES
 
@@ -693,6 +700,7 @@ def main():
     output_serial = True
     buffer_saved = False
     filedialog_save = False
+    first_packet = True
     ground_sequence_number = 1
     spacecraft_sequence_number = 0
     health_payload_length = 46
