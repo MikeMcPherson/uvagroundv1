@@ -36,9 +36,10 @@ import serial
 import json
 import queue
 import threading
+import pprint
 
 program_name = 'UVa Libertas Ground Station'
-program_version = '1.0'
+program_version = '1.1'
 
 
 """
@@ -109,6 +110,18 @@ class Handler:
         global filedialog_save
         filechooserwindow.hide()
         filedialog_save = True
+    
+    def on_load(self, button):
+        global filechooser2window
+        load_file()
+                
+    def on_filechooserdialog2_cancel(self, button):
+        global filechooser2window
+        filechooser2window.hide()
+                
+    def on_filechooserdialog2_open(self, button):
+        global filechooser2window
+        filechooser2window.hide()
     
     def on_combobox1_changed(self, button):
         global baudrates
@@ -380,11 +393,27 @@ def process_received():
 Helpers
 """
 
+def load_file():
+    global filechooser2window
+    global textview2_buffer
+    filechooser2window.run()
+    script_filename = filechooser2window.get_filename()
+    fp = open(script_filename, "r")
+    json_return = json.load(fp)
+    fp.close()
+    start_iter = textview2_buffer.get_start_iter()
+    end_iter = textview2_buffer.get_end_iter()
+    textview2_buffer.delete(start_iter, end_iter)
+    json_pretty = pprint.pformat(json_return['commands'])
+    end_iter = textview2_buffer.get_end_iter()
+    textview2_buffer.insert(end_iter, json_pretty, -1)
+
+
 def save_file():
     global textview
     global buffer_saved
     global buffer_filename
-    if textview.get_buffer().get_line_count() > 1:
+    if first_packet == False:
         if buffer_saved:
             write_buffer(buffer_filename)
         else:
@@ -637,10 +666,13 @@ Main
 def main():
     global builder
     global textview
+    global textview2
     global textview_buffer
+    global textview2_buffer
     global output_serial
     global argwindow
     global filechooserwindow
+    global filechooser2window
     global combobox1
     global baudrates
     global buffer_saved
@@ -736,8 +768,11 @@ def main():
     appwindow = builder.get_object("applicationwindow1")
     textview = builder.get_object("textview1")
     textview_buffer = textview.get_buffer()
+    textview2 = builder.get_object("textview2")
+    textview2_buffer = textview2.get_buffer()
     argwindow = builder.get_object("dialog1")
     filechooserwindow = builder.get_object("filechooserdialog1")
+    filechooser2window = builder.get_object("filechooserdialog2")
     entry1 = builder.get_object("entry1")
     entry1.set_text(serial_device_name)
     entry_objs = [
