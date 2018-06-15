@@ -37,6 +37,7 @@ import json
 import queue
 import threading
 import pprint
+import socket
 
 program_name = 'UVa Libertas Ground Station'
 program_version = '1.1'
@@ -112,9 +113,50 @@ class Handler:
         filedialog_save = True
     
     def on_load(self, button):
-        global filechooser2window
         load_file()
+    
+    def on_run(self, button):
+        pass
                 
+    def on_pause(self, button):
+        pass
+                
+    def on_stop(self, button):
+        pass
+                
+    def on_clear(self, button):
+        script_clear()
+                
+    def on_use_usrp_output(self, button):
+        global use_serial
+        global serial_obj
+        global rx_port
+        global tx_port
+        global rx_obj
+        global tx_obj
+        use_serial = False
+        try:
+            serial_obj.close()
+        except:
+            pass
+        open_usrp_device()
+        
+        
+    def on_use_serial_output(self, button):
+        global use_serial
+        global rx_obj
+        global tx_obj
+        global serial_obj
+        global serial_device_name
+        use_serial = True
+        try:
+            rx_obj.close()
+            tx_obj.close()
+        except:
+            pass
+        open_serial_device()
+        
+        
     def on_filechooserdialog2_cancel(self, button):
         global filechooser2window
         filechooser2window.hide()
@@ -160,17 +202,17 @@ def dialog1_run(title, labels, defaults, tooltips):
 
 
 def dialog1_transmit():
-        global argwindow
-        global dialog1_xmit
-        argwindow.hide()
-        dialog1_xmit = True    
+    global argwindow
+    global dialog1_xmit
+    argwindow.hide()
+    dialog1_xmit = True    
 
 
 def dialog1_cancel():
-        global argwindow
-        global dialog1_xmit
-        argwindow.hide()
-        dialog1_xmit = False
+    global argwindow
+    global dialog1_xmit
+    argwindow.hide()
+    dialog1_xmit = False
 
 
 """
@@ -409,11 +451,18 @@ def load_file():
     textview2_buffer.insert(end_iter, json_pretty, -1)
 
 
+def script_clear():
+    global textview2_buffer
+    start_iter = textview2_buffer.get_start_iter()
+    end_iter = textview2_buffer.get_end_iter()
+    textview2_buffer.delete(start_iter, end_iter)
+
+
 def save_file():
     global textview
     global buffer_saved
     global buffer_filename
-    if first_packet == False:
+    if first_packet is False:
         if buffer_saved:
             write_buffer(buffer_filename)
         else:
@@ -524,6 +573,23 @@ def gps_time():
 def hmac_sign(packet, key):
     digest = hmac.new(key, msg=packet, digestmod=hashlib.sha256).digest()
     return(digest)
+    
+    
+def open_serial_device():
+    global serial_device_name
+    global serial_obj
+    serial_obj = serial.Serial(serial_device_name, baudrate=4800)
+
+
+def open_usrp_device():
+    global rx_port
+    global tx_port
+    global rx_obj
+    global tx_obj
+    rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    rx_obj.bind(('localhost', rx_port))
+    tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tx_obj.bind(('localhost', tx_port))
 
 
 """
@@ -655,6 +721,23 @@ def lithium_unwrap(lithium_packet):
     return(tm_packet)
 
 
+def ax25_wrap(packet):
+    global ax25_header
+    ax25_packet = ax25_header
+    for p in packet:
+        ax25_packet.append(p)
+    return(ax25_packet)
+
+
+def ax25_unwrap(ax25_packet):
+    packet = ax25_packet[16:]
+    return(packet)
+    
+    
+def kiss_unwrap(kiss_packet):
+    
+
+
 def validate_packet(packet_type, data, sequence_number, key):
     return(0)
 
@@ -675,17 +758,26 @@ def main():
     global filechooser2window
     global combobox1
     global baudrates
+    global radiobutton1
+    global radiobutton2
     global buffer_saved
     global filedialog_save
     global entry_objs
     global label_objs
     global label11
+    global ax25_destination
+    global ax25_source
     global ground_sequence_number
     global use_serial
     global serial_device_name
     global serial_obj
+    global rx_port
+    global tx_port
+    global rx_obj
+    global tx_obj
     global spacecraft_key
     global ground_station_key
+    global oa_key
     global display_queue
     global receive_thread
     global process_queue
@@ -708,6 +800,9 @@ def main():
     global first_packet
     global COMMAND_NAMES
     global COMMAND_CODES
+    global dst_callsign
+    global src_callsign
+    global ax25_header
 
     COMMAND_NAMES = {
                         0x05 : 'ACK',
@@ -727,12 +822,17 @@ def main():
     COMMAND_CODES = {}
     for code, cmd in COMMAND_NAMES.items():
         COMMAND_CODES.update({cmd : code})
-    use_serial = True
+    use_serial = False
     serial_device_name = 'pty_libertas'
     output_serial = True
     buffer_saved = False
     filedialog_save = False
     first_packet = True
+    rx_port = 9501
+    tx_port = 9500
+    dst_callsign = 'W4UVA '
+    src_callsign = 'W4UVA '
+    
     ground_sequence_number = 1
     spacecraft_sequence_number = 0
     health_payload_length = 46
@@ -750,13 +850,28 @@ def main():
     last_tc_packet = {}
     baudrates = [9600, 19200, 38400, 76800, 115200]
     
+    ax25_header = array.array('B', [])
+    for c in dst_callsign:
+        ax25_header.append(ord(c) << 1)
+    ax25_header.append(0)
+    for c in src_callsign:
+        ax25_header.append(ord(c) << 1)
+    ax25_header.append(0)
+    ax25_header.append(0x03)
+    ax25_header.append(0xF0)
+    print(ax25_header)
+    
     key_fp = open('/shared/keys/libertas_hmac_secret_keys.json', "r")
     json_return = json.load(key_fp)
     key_fp.close()
     spacecraft_key = json_return['libertas_key'].encode()
     ground_station_key = json_return['ground_station_key'].encode()
+    oa_key = json_return['oa_key'].encode()
     
-    serial_obj = serial.Serial(serial_device_name, baudrate=4800)
+    if use_serial:
+        open_serial_device()
+    else:
+        open_usrp_device()
     
     display_queue = queue.Queue()
     process_queue = queue.Queue()
@@ -775,6 +890,8 @@ def main():
     filechooser2window = builder.get_object("filechooserdialog2")
     entry1 = builder.get_object("entry1")
     entry1.set_text(serial_device_name)
+    radiobutton1 = builder.get_object("radiobutton1")
+    radiobutton2 = builder.get_object("radiobutton2")
     entry_objs = [
                 builder.get_object("entry2"),
                 builder.get_object("entry3"),
