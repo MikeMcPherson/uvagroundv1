@@ -391,7 +391,9 @@ def process_received():
         if spacecraft_sequence_number > 65535:
             spacecraft_sequence_number = 1
         validation_mask = validate_packet('TC', tm_packet, spacecraft_sequence_number, spacecraft_key)
+        print("RECV tm_packet", tm_packet)
         tm_data = spp_unwrap(tm_packet)
+        print("RECV tm_data", tm_data)
         tm_command = tm_data[0]
         sequence_numbers = array.array('B', tm_packet[21:23])
 
@@ -601,8 +603,12 @@ def transmit_packet(tc_packet, expect_ack):
     global ground_sequence_number
     global last_tc_packet
     global display_queue
+    ax25_packet = ax25_wrap(tc_packet)
     if use_serial:
-        transmit_serial(tc_packet)
+        transmit_serial(ax25_packet)
+    else:
+        kiss_packet = kiss_wrap(ax25_packet)
+        transmit_usrp(kiss_packet)
     last_sn = ground_sequence_number
     ground_sequence_number += 1
     if ground_sequence_number > 65535:
@@ -618,6 +624,10 @@ def transmit_serial(tc_packet):
     serial_obj.write(lithium_packet)
 
 
+def transmit_usrp(kiss_packet):
+    print("XMIT kiss_packet", kiss_packet)
+
+
 def receive_serial():
     global serial_obj
     global display_queue
@@ -631,7 +641,9 @@ def receive_serial():
         serial_buffer = serial_obj.read(lithium_packet[5] + 2)
         for s in serial_buffer:
             lithium_packet.append(s)
-        tm_packet = lithium_unwrap(lithium_packet)
+        print("Ground RECV raw packet", lithium_packet)
+        ax25_packet = lithium_unwrap(lithium_packet)
+        tm_packet = ax25_unwrap(ax25_packet)
         display_queue.put(tm_packet)
         process_queue.put(tm_packet)
         process_event.set()
@@ -723,7 +735,9 @@ def lithium_unwrap(lithium_packet):
 
 def ax25_wrap(packet):
     global ax25_header
-    ax25_packet = ax25_header
+    ax25_packet = array.array('B', [])
+    for h in ax25_header:
+        ax25_packet.append(h)
     for p in packet:
         ax25_packet.append(p)
     return(ax25_packet)
@@ -733,9 +747,36 @@ def ax25_unwrap(ax25_packet):
     packet = ax25_packet[16:]
     return(packet)
     
-    
+
+FEND = 0xC0
+FESC = 0xDB
+TFEND = 0xDC
+TFESC = 0xDD
+
+def kiss_wrap(packet):
+    kiss_packet = array.array('B', [FEND, 0x00])
+    for p in packet:
+        if p == FEND:
+            kiss_packet.append(FESC)
+            kiss_packet.append(TFEND)
+        elif p == FESC:
+            kiss_packet.append(FESC)
+            kiss_packet.append(TFESC)
+        else:
+            kiss_packet.append(p)
+    kiss_packet.append(FEND)
+    return(kiss_packet)
+
+
 def kiss_unwrap(kiss_packet):
-    
+    packet = array.array('B', [])
+    for idx, k in enumerate(kiss_packet[2:-1]):
+        if k == FESC:
+            if (kiss_packet[idx + 3] == TFEND) or (kiss_packet[idx + 3] == TFESC):
+                continue
+        else:
+            packet.append(k)
+    return(packet)
 
 
 def validate_packet(packet_type, data, sequence_number, key):
@@ -822,7 +863,7 @@ def main():
     COMMAND_CODES = {}
     for code, cmd in COMMAND_NAMES.items():
         COMMAND_CODES.update({cmd : code})
-    use_serial = False
+    use_serial = True
     serial_device_name = 'pty_libertas'
     output_serial = True
     buffer_saved = False
@@ -859,7 +900,6 @@ def main():
     ax25_header.append(0)
     ax25_header.append(0x03)
     ax25_header.append(0xF0)
-    print(ax25_header)
     
     key_fp = open('/shared/keys/libertas_hmac_secret_keys.json', "r")
     json_return = json.load(key_fp)
