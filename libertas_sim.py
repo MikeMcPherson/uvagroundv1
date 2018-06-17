@@ -54,11 +54,8 @@ Transmit and receive packets
 """
 
 def transmit_packet(packet, sequence_number, serial_obj):
-    print("Libertas ACK packet in transmit_packet", packet)
     ax25_packet = ax25_wrap(packet)
-    print("Libertas ACK packet after ax25_wrap", ax25_packet)
     lithium_packet = lithium_wrap(ax25_packet)
-    print("Libertas ACK packet after lithium_wrap", lithium_packet)
     serial_obj.write(lithium_packet)
     sequence_number += 1
     if sequence_number > 65535:
@@ -67,6 +64,7 @@ def transmit_packet(packet, sequence_number, serial_obj):
 
 
 def receive_packet(serial_obj):
+    global oa_key
     serial_buffer = serial_obj.read(8)
     lithium_packet = array.array('B', [])
     for s in serial_buffer:
@@ -76,7 +74,13 @@ def receive_packet(serial_obj):
         lithium_packet.append(s)
     ax25_packet = lithium_unwrap(lithium_packet)
     packet = ax25_unwrap(ax25_packet)
-    return(packet)
+    oa_packet = False
+    if len(packet) >= 17:
+        oa_packet = True
+        for idx, c in enumerate(oa_key):
+            if c != packet[idx]:
+                oa_packet = False
+    return(packet, oa_packet)
 
 
 def send_ack(sequence_numbers, sequence_number, key, serial_obj):
@@ -249,6 +253,7 @@ Main
 
 def main():
     global ax25_header
+    global oa_key
     
     """
     Commands
@@ -312,20 +317,30 @@ def main():
     spacecraft_key = json_return['libertas_key'].encode()
     ground_station_key = json_return['ground_station_key'].encode()
     oa_key = json_return['oa_key'].encode()
+    oa_packet = False
     
     serial_obj = serial.Serial(serial_device_name, baudrate=9600)
     
     while True:
-        tc_packet = receive_packet(serial_obj)
-        ground_sequence_number += 1
-        if ground_sequence_number > 65535:
-            ground_sequence_number = 1
-        validation_mask = validate_packet('TC', tc_packet, ground_sequence_number, ground_station_key)
-        tc_data = spp_unwrap(tc_packet)
-        tc_command = tc_data[0]
-        sequence_numbers = array.array('B', tc_packet[21:23])
-
-        if tc_command == COMMAND_ACK:
+        (tc_packet, oa_packet) = receive_packet(serial_obj)
+        if not oa_packet:
+            ground_sequence_number += 1
+            if ground_sequence_number > 65535:
+                ground_sequence_number = 1
+            validation_mask = validate_packet('TC', tc_packet, ground_sequence_number, ground_station_key)
+            tc_data = spp_unwrap(tc_packet)
+            tc_command = tc_data[0]
+            sequence_numbers = array.array('B', tc_packet[21:23])
+        if oa_packet:
+            if tc_packet[16] == 0x31:
+                print("Received OA PING_RETURN_COMMAND")
+            elif tc_packet[16] == 0x33:
+                print("Received OA RADIO_RESET_COMMAND")
+            elif tc_packet[16] == 0x34:
+                print("Received OA PIN_TOGGLE_COMMAND")
+            else:
+                print("Received OA invalid command")
+        elif tc_command == COMMAND_ACK:
             if tc_data[1] == 0:
                 last_tm_packet.clear()
             else:

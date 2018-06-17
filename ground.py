@@ -88,6 +88,15 @@ class Handler:
     def on_get_comms(self, button):
         get_comms()
 
+    def on_ping_return(self, button):
+        ping_return()
+
+    def on_radio_reset(self, button):
+        radio_reset()
+
+    def on_pin_toggle(self, button):
+        pin_toggle()
+
     def on_dialog1_cancel(self, button):
         dialog1_cancel()
         
@@ -222,19 +231,19 @@ Ground Commands
 def cease_xmit():
     tc_data = array.array('B', [0x7F, 0x00])
     tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, True)
+    transmit_packet(tc_packet, True, False)
               
 
 def noop():
     tc_data = array.array('B', [0x09, 0x00])
     tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, True)
+    transmit_packet(tc_packet, True, False)
               
 
 def xmit_noop():
     tc_data = array.array('B', [0x0A, 0x00])
     tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, False)
+    transmit_packet(tc_packet, False, False)
               
 
 def reset():
@@ -250,13 +259,13 @@ def reset():
         tc_data.append((args[0] & 0xFF00) >> 8)
         tc_data.append(args[0] & 0x00FF)
         tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, True)
+        transmit_packet(tc_packet, True, False)
               
 
 def xmit_count():
     tc_data = array.array('B', [0x01, 0x00])
     tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, False)
+    transmit_packet(tc_packet, False, False)
               
 
 def xmit_health():
@@ -271,7 +280,7 @@ def xmit_health():
         tc_data = array.array('B', [0x02, 0x01])
         tc_data.append(args[0] & 0x00FF)
         tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, False)
+        transmit_packet(tc_packet, False, False)
               
 
 def xmit_science():
@@ -286,7 +295,7 @@ def xmit_science():
         tc_data = array.array('B', [0x03, 0x01])
         tc_data.append(args[0] & 0x00FF)
         tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, False)
+        transmit_packet(tc_packet, False, False)
               
 
 def read_mem():
@@ -305,7 +314,7 @@ def read_mem():
         tc_data.append((args[1] & 0xFF00) >> 8)
         tc_data.append(args[1] & 0x00FF)
         tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, False)
+        transmit_packet(tc_packet, False, False)
               
 
 def write_mem():
@@ -325,7 +334,7 @@ def write_mem():
             tc_data.append((a & 0xFF00) >> 8)
             tc_data.append(a & 0x00FF)
         tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, True)
+        transmit_packet(tc_packet, True, False)
               
 
 def set_comms():
@@ -354,14 +363,41 @@ def set_comms():
             tc_data.append((a & 0xFF00) >> 8)
             tc_data.append(a & 0x00FF)
         tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, True)
+        transmit_packet(tc_packet, True, False)
     
     
 def get_comms():
     tc_data = array.array('B', [0x0C, 0x00])
     tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, False)
+    transmit_packet(tc_packet, False, False)
               
+
+def ping_return():
+    global oa_key
+    tc_packet = array.array('B', [])
+    for k in oa_key:
+        tc_packet.append(k)
+    tc_packet.append(0x31)
+    transmit_packet(tc_packet, False, True)
+
+
+def radio_reset():
+    global oa_key
+    tc_packet = array.array('B', [])
+    for k in oa_key:
+        tc_packet.append(k)
+    tc_packet.append(0x33)
+    transmit_packet(tc_packet, False, True)
+
+
+def pin_toggle():
+    global oa_key
+    tc_packet = array.array('B', [])
+    for k in oa_key:
+        tc_packet.append(k)
+    tc_packet.append(0x34)
+    transmit_packet(tc_packet, False, True)
+
 
 """
 Process Received Packets (thread)
@@ -495,6 +531,17 @@ def write_buffer(buffer_filename):
     fobj.close()
 
 
+def is_oa_packet(packet):
+    global oa_key
+    oa_packet = False
+    if len(packet) >= 17:
+        oa_packet = True
+        for idx, c in enumerate(oa_key):
+            if c != packet[idx]:
+                oa_packet = False
+    return(oa_packet)
+
+
 def display_packet():
     global textview
     global textview_buffer
@@ -505,6 +552,7 @@ def display_packet():
         pass
     else:
         packet = display_queue.get()
+        oa_packet = is_oa_packet(packet)
         if first_packet:
             textview_buffer.insert(textview_buffer.get_end_iter(), "{\n\"packets\" : [\n")
             first_packet = False
@@ -512,54 +560,68 @@ def display_packet():
             textview_buffer.insert(textview_buffer.get_end_iter(), ",\n")
         textview_buffer.insert(textview_buffer.get_end_iter(), "{\n")
         
-        if (packet[0] & 0b00010000) == 0:
+        if oa_packet:
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"spacecraft\",\n")    
-            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TM\",\n")
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"OA\",\n")
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"command\":\"")
+            if packet[16] == 0x31:
+                textview_buffer.insert(textview_buffer.get_end_iter(), "PING_RETURN_COMMAND")
+            elif packet[16] == 0x33:
+                textview_buffer.insert(textview_buffer.get_end_iter(), "RADIO_RESET_COMMAND")
+            elif packet[16] == 0x34:
+                textview_buffer.insert(textview_buffer.get_end_iter(), "PIN_TOGGLE_COMMAND")
+            else:
+                textview_buffer.insert(textview_buffer.get_end_iter(), "ILLEGAL OA COMMAND")
+            textview_buffer.insert(textview_buffer.get_end_iter(), "\"\n")
         else:
-            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"ground\",\n")    
-            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TC\",\n")
-        
-        textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_data_length\":\"")
-        textview_buffer.insert(textview_buffer.get_end_iter(), 
-            "0x{:04X}".format(((int(packet[1]) << 8) + packet[2])))
-        textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
-        
-        textview_buffer.insert(textview_buffer.get_end_iter(), "    \"gps_week\":\"")
-        textview_buffer.insert(textview_buffer.get_end_iter(), "".join(map(chr, packet[3:7])))
-        textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
-        
-        textview_buffer.insert(textview_buffer.get_end_iter(), "    \"gps_time\":\"")
-        textview_buffer.insert(textview_buffer.get_end_iter(), "".join(map(chr, packet[7:21])))
-        textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
-        
-        textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sequence_number\":\"")
-        textview_buffer.insert(textview_buffer.get_end_iter(), 
-            "0x{:04X}".format(((int(packet[21]) << 8) + packet[22])))
-        textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
-        
-        textview_buffer.insert(textview_buffer.get_end_iter(), "    \"command\":\"")
-        textview_buffer.insert(textview_buffer.get_end_iter(), COMMAND_NAMES[packet[23]])
-        textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
-        
-        packet_list = []
-        for p in packet[23:-32]:
-            packet_list.append("\"0x{:02X}\"".format(p))
-        packet_string = ", ".join(map(str, packet_list))
-        if (packet[0] & 0b00010000) == 0:
-            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"tm_data\":[")
-        else:
-            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"tc_data\":[")
-        textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
-        textview_buffer.insert(textview_buffer.get_end_iter(), "],\n")
-        
-        packet_list = []
-        for p in packet[-32:]:
-            packet_list.append("\"0x{:02X}\"".format(p))
-        packet_string = ", ".join(map(str, packet_list))
-        textview_buffer.insert(textview_buffer.get_end_iter(), "    \"hmac_digest\":[")
-        textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
-        textview_buffer.insert(textview_buffer.get_end_iter(), "]\n")
-        
+            if (packet[0] & 0b00010000) == 0:
+                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"spacecraft\",\n")    
+                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TM\",\n")
+            else:
+                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"ground\",\n")    
+                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TC\",\n")
+            
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_data_length\":\"")
+            textview_buffer.insert(textview_buffer.get_end_iter(), 
+                "0x{:04X}".format(((int(packet[1]) << 8) + packet[2])))
+            textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
+            
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"gps_week\":\"")
+            textview_buffer.insert(textview_buffer.get_end_iter(), "".join(map(chr, packet[3:7])))
+            textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
+            
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"gps_time\":\"")
+            textview_buffer.insert(textview_buffer.get_end_iter(), "".join(map(chr, packet[7:21])))
+            textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
+            
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sequence_number\":\"")
+            textview_buffer.insert(textview_buffer.get_end_iter(), 
+                "0x{:04X}".format(((int(packet[21]) << 8) + packet[22])))
+            textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
+            
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"command\":\"")
+            textview_buffer.insert(textview_buffer.get_end_iter(), COMMAND_NAMES[packet[23]])
+            textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
+            
+            packet_list = []
+            for p in packet[23:-32]:
+                packet_list.append("\"0x{:02X}\"".format(p))
+            packet_string = ", ".join(map(str, packet_list))
+            if (packet[0] & 0b00010000) == 0:
+                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"tm_data\":[")
+            else:
+                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"tc_data\":[")
+            textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
+            textview_buffer.insert(textview_buffer.get_end_iter(), "],\n")
+            
+            packet_list = []
+            for p in packet[-32:]:
+                packet_list.append("\"0x{:02X}\"".format(p))
+            packet_string = ", ".join(map(str, packet_list))
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"hmac_digest\":[")
+            textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
+            textview_buffer.insert(textview_buffer.get_end_iter(), "]\n")
+            
         textview_buffer.insert(textview_buffer.get_end_iter(), "}\n")
         end_mark = textview_buffer.create_mark('END', textview_buffer.get_end_iter(), True)
         textview.scroll_mark_onscreen(end_mark)
@@ -598,7 +660,7 @@ def open_usrp_device():
 Transmit and receive packets
 """
 
-def transmit_packet(tc_packet, expect_ack):
+def transmit_packet(tc_packet, expect_ack, oa_packet):
     global use_serial
     global ground_sequence_number
     global last_tc_packet
@@ -609,12 +671,13 @@ def transmit_packet(tc_packet, expect_ack):
     else:
         kiss_packet = kiss_wrap(ax25_packet)
         transmit_usrp(kiss_packet)
-    last_sn = ground_sequence_number
-    ground_sequence_number += 1
-    if ground_sequence_number > 65535:
-        ground_sequence_number = 1
-    if expect_ack:
-        last_tc_packet.update({last_sn:tc_packet})
+    if not oa_packet:
+        last_sn = ground_sequence_number
+        ground_sequence_number += 1
+        if ground_sequence_number > 65535:
+            ground_sequence_number = 1
+        if expect_ack:
+            last_tc_packet.update({last_sn:tc_packet})
     display_queue.put(tc_packet)
 
 
@@ -656,7 +719,7 @@ def send_ack(sequence_numbers):
             tc_data.append(s)
         tc_data[1] = (sequence_numbers.buffer_info()[1] & 0xFF)
     tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, False)
+    transmit_packet(tc_packet, False, False)
     return(tc_packet)
 
 
@@ -667,7 +730,7 @@ def send_nak(sequence_numbers):
             tc_data.append(s)
         tc_data[1] = (sequence_numbers.buffer_info()[1] & 0xFF)
     tc_packet = spp_wrap('TC', tc_data, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, False)
+    transmit_packet(tc_packet, False, False)
     return(tc_packet)
 
 
