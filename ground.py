@@ -135,37 +135,33 @@ class Handler:
                 
     def on_clear(self, button):
         script_clear()
-                
-    def on_use_usrp_output(self, button):
+
+
+    def on_use_output(self,button):
         global use_serial
         global serial_obj
         global rx_port
         global tx_port
         global rx_obj
         global tx_obj
-        use_serial = False
-        try:
-            serial_obj.close()
-        except:
-            pass
-        open_usrp_device()
-        
-        
-    def on_use_serial_output(self, button):
-        global use_serial
-        global rx_obj
-        global tx_obj
-        global serial_obj
-        global serial_device_name
-        use_serial = True
-        try:
-            rx_obj.close()
-            tx_obj.close()
-        except:
-            pass
-        open_serial_device()
-        
-        
+        use_serial = button.get_active()
+        if use_serial:
+            try:
+                rx_obj.close()
+                tx_obj.close()
+            except:
+                pass
+            open_serial_device()
+            print("Using serial")
+        else:
+            try:
+                serial_obj.close()
+            except:
+                pass
+            open_usrp_device()
+            print("Using USRP")
+
+                
     def on_filechooserdialog2_cancel(self, button):
         global filechooser2window
         filechooser2window.hide()
@@ -427,9 +423,7 @@ def process_received():
         if spacecraft_sequence_number > 65535:
             spacecraft_sequence_number = 1
         validation_mask = validate_packet('TC', tm_packet, spacecraft_sequence_number, spacecraft_key)
-        print("RECV tm_packet", tm_packet)
         tm_data = spp_unwrap(tm_packet)
-        print("RECV tm_data", tm_data)
         tm_command = tm_data[0]
         sequence_numbers = array.array('B', tm_packet[21:23])
 
@@ -651,9 +645,9 @@ def open_usrp_device():
     global rx_obj
     global tx_obj
     rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    rx_obj.bind(('localhost', rx_port))
+    rx_obj.connect(('localhost', rx_port))
     tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tx_obj.bind(('localhost', tx_port))
+    tx_obj.connect(('localhost', tx_port))
 
 
 """
@@ -665,6 +659,7 @@ def transmit_packet(tc_packet, expect_ack, oa_packet):
     global ground_sequence_number
     global last_tc_packet
     global display_queue
+    print("Ground XMIT", tc_packet)
     ax25_packet = ax25_wrap(tc_packet)
     if use_serial:
         transmit_serial(ax25_packet)
@@ -688,29 +683,48 @@ def transmit_serial(tc_packet):
 
 
 def transmit_usrp(kiss_packet):
-    print("XMIT kiss_packet", kiss_packet)
+    global rx_obj
+    global tx_obj
+    tx_obj.send(kiss_packet)
 
 
-def receive_serial():
-    global serial_obj
+def receive_packet():
+    global use_serial
     global display_queue
     global process_queue
     global process_event
     while True:
-        serial_buffer = serial_obj.read(8)
-        lithium_packet = array.array('B', [])
-        for s in serial_buffer:
-            lithium_packet.append(s)
-        serial_buffer = serial_obj.read(lithium_packet[5] + 2)
-        for s in serial_buffer:
-            lithium_packet.append(s)
-        print("Ground RECV raw packet", lithium_packet)
-        ax25_packet = lithium_unwrap(lithium_packet)
+        if use_serial:
+            lithium_packet = receive_serial()
+            ax25_packet = lithium_unwrap(lithium_packet)
+        else:
+            kiss_packet = receive_usrp()
+            ax25_packet = kiss_unwrap(kiss_packet)
         tm_packet = ax25_unwrap(ax25_packet)
+        print("Ground RECV", tm_packet)
         display_queue.put(tm_packet)
         process_queue.put(tm_packet)
         process_event.set()
 
+
+def receive_serial():
+    global serial_obj
+    serial_buffer = serial_obj.read(8)
+    lithium_packet = array.array('B', [])
+    for s in serial_buffer:
+        lithium_packet.append(s)
+    serial_buffer = serial_obj.read(lithium_packet[5] + 2)
+    for s in serial_buffer:
+        lithium_packet.append(s)
+    return(lithium_packet)
+
+
+def receive_usrp():
+    global rx_obj
+    global tx_obj
+    packet = rx_obj.recv(1024)
+    return(packet)
+    
 
 def send_ack(sequence_numbers):
     tc_data = array.array('B', [0x05, 0x00])
@@ -833,8 +847,10 @@ def kiss_wrap(packet):
 
 def kiss_unwrap(kiss_packet):
     packet = array.array('B', [])
-    for idx, k in enumerate(kiss_packet[2:-1]):
-        if k == FESC:
+    for idx, k in enumerate(kiss_packet[2:]):
+        if k == FEND:
+            pass
+        elif k == FESC:
             if (kiss_packet[idx + 3] == TFEND) or (kiss_packet[idx + 3] == TFESC):
                 continue
         else:
@@ -926,7 +942,7 @@ def main():
     COMMAND_CODES = {}
     for code, cmd in COMMAND_NAMES.items():
         COMMAND_CODES.update({cmd : code})
-    use_serial = True
+    use_serial = False
     serial_device_name = 'pty_libertas'
     output_serial = True
     buffer_saved = False
@@ -1017,7 +1033,7 @@ def main():
     
     appwindow.show_all()
     
-    receive_thread = threading.Thread(name='receive_serial', target=receive_serial, daemon=True)
+    receive_thread = threading.Thread(name='receive_packet', target=receive_packet, daemon=True)
     receive_thread.start()
     process_thread = threading.Thread(name='process_received', target=process_received, daemon=True)
     process_thread.start()
