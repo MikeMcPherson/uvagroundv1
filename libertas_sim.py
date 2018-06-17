@@ -362,13 +362,15 @@ def main():
             sequence_numbers = array.array('B', tc_packet[21:23])
         if oa_packet:
             if tc_packet[16] == 0x31:
-                print("Received OA PING_RETURN_COMMAND")
+                print("Libertas received OA PING_RETURN_COMMAND")
             elif tc_packet[16] == 0x33:
-                print("Received OA RADIO_RESET_COMMAND")
+                print("Libertas received OA RADIO_RESET_COMMAND")
             elif tc_packet[16] == 0x34:
-                print("Received OA PIN_TOGGLE_COMMAND")
+                print("Libertas received OA PIN_TOGGLE_COMMAND")
             else:
-                print("Received OA invalid command")
+                print("Libertas received OA invalid command")
+        elif tc_packet[0] == 0x08:
+            print("Libertas received my own packet")
         elif tc_command == COMMAND_ACK:
             if tc_data[1] == 0:
                 last_tm_packet.clear()

@@ -152,14 +152,12 @@ class Handler:
             except:
                 pass
             open_serial_device()
-            print("Using serial")
         else:
             try:
                 serial_obj.close()
             except:
                 pass
             open_usrp_device()
-            print("Using USRP")
 
                 
     def on_filechooserdialog2_cancel(self, button):
@@ -659,7 +657,6 @@ def transmit_packet(tc_packet, expect_ack, oa_packet):
     global ground_sequence_number
     global last_tc_packet
     global display_queue
-    print("Ground XMIT", tc_packet)
     ax25_packet = ax25_wrap(tc_packet)
     if use_serial:
         transmit_serial(ax25_packet)
@@ -701,7 +698,6 @@ def receive_packet():
             kiss_packet = receive_usrp()
             ax25_packet = kiss_unwrap(kiss_packet)
         tm_packet = ax25_unwrap(ax25_packet)
-        print("Ground RECV", tm_packet)
         display_queue.put(tm_packet)
         process_queue.put(tm_packet)
         process_event.set()
