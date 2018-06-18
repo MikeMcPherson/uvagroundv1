@@ -567,11 +567,11 @@ def display_packet():
             else:
                 textview_buffer.insert(textview_buffer.get_end_iter(), "ILLEGAL OA COMMAND")
             textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
-        elif packet[0] == 0b00010000:
+        elif packet[0] == 0x08:
             valid_packet = True
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"spacecraft\",\n")    
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TM\",\n")
-        elif packet[0] == 0b00011000:
+        elif packet[0] == 0x18:
             valid_packet = True
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"ground\",\n")    
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TC\",\n")
