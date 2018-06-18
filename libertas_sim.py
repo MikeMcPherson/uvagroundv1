@@ -56,7 +56,6 @@ Transmit and receive packets
 
 def transmit_packet(packet, sequence_number, tx_obj):
     global use_serial
-    print("Libertas XMIT", packet)
     ax25_packet = ax25_wrap(packet)
     if use_serial:
         lithium_packet = lithium_wrap(ax25_packet)
@@ -89,7 +88,6 @@ def receive_packet(rx_obj):
             kiss_packet.append(c)
         ax25_packet = kiss_unwrap(kiss_packet)
     packet = ax25_unwrap(ax25_packet)
-    print("Libertas RECV packet", packet)
     oa_packet = False
     if len(packet) >= 17:
         oa_packet = True
@@ -308,7 +306,7 @@ def main():
     ack_timeout = 10
     sequence_number_window = 2
     last_tm_packet = {}
-    use_serial = False
+    use_serial = True
     rx_port = 9501
     tx_port = 9500
     

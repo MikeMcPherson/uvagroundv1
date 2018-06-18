@@ -543,7 +543,8 @@ def display_packet():
     if display_queue.empty():
         pass
     else:
-        packet = display_queue.get()
+        ax25_packet = display_queue.get()
+        packet = ax25_unwrap(ax25_packet)
         oa_packet = is_oa_packet(packet)
         if first_packet:
             textview_buffer.insert(textview_buffer.get_end_iter(), "{\n\"packets\" : [\n")
@@ -553,7 +554,8 @@ def display_packet():
         textview_buffer.insert(textview_buffer.get_end_iter(), "{\n")
         
         if oa_packet:
-            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"spacecraft\",\n")    
+            valid_packet = False
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"ground\",\n")    
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"OA\",\n")
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"command\":\"")
             if packet[16] == 0x31:
@@ -564,15 +566,21 @@ def display_packet():
                 textview_buffer.insert(textview_buffer.get_end_iter(), "PIN_TOGGLE_COMMAND")
             else:
                 textview_buffer.insert(textview_buffer.get_end_iter(), "ILLEGAL OA COMMAND")
-            textview_buffer.insert(textview_buffer.get_end_iter(), "\"\n")
+            textview_buffer.insert(textview_buffer.get_end_iter(), "\",\n")
+        elif packet[0] == 0b00010000:
+            valid_packet = True
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"spacecraft\",\n")    
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TM\",\n")
+        elif packet[0] == 0b00011000:
+            valid_packet = True
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"ground\",\n")    
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TC\",\n")
         else:
-            if (packet[0] & 0b00010000) == 0:
-                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"spacecraft\",\n")    
-                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TM\",\n")
-            else:
-                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"ground\",\n")    
-                textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"TC\",\n")
-            
+            valid_packet = False
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"sender\":\"spacecraft\",\n")    
+            textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_type\":\"UNKNOWN\",\n")
+        
+        if valid_packet:
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"packet_data_length\":\"")
             textview_buffer.insert(textview_buffer.get_end_iter(), 
                 "0x{:04X}".format(((int(packet[1]) << 8) + packet[2])))
@@ -612,7 +620,15 @@ def display_packet():
             packet_string = ", ".join(map(str, packet_list))
             textview_buffer.insert(textview_buffer.get_end_iter(), "    \"hmac_digest\":[")
             textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
-            textview_buffer.insert(textview_buffer.get_end_iter(), "]\n")
+            textview_buffer.insert(textview_buffer.get_end_iter(), "],\n")
+
+        packet_list = []
+        for p in ax25_packet:
+            packet_list.append("\"0x{:02X}\"".format(p))
+        packet_string = ", ".join(map(str, packet_list))
+        textview_buffer.insert(textview_buffer.get_end_iter(), "    \"raw_packet\":[")
+        textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
+        textview_buffer.insert(textview_buffer.get_end_iter(), "]\n")
             
         textview_buffer.insert(textview_buffer.get_end_iter(), "}\n")
         end_mark = textview_buffer.create_mark('END', textview_buffer.get_end_iter(), True)
@@ -670,7 +686,7 @@ def transmit_packet(tc_packet, expect_ack, oa_packet):
             ground_sequence_number = 1
         if expect_ack:
             last_tc_packet.update({last_sn:tc_packet})
-    display_queue.put(tc_packet)
+    display_queue.put(ax25_packet)
 
 
 def transmit_serial(tc_packet):
@@ -698,9 +714,10 @@ def receive_packet():
             kiss_packet = receive_usrp()
             ax25_packet = kiss_unwrap(kiss_packet)
         tm_packet = ax25_unwrap(ax25_packet)
-        display_queue.put(tm_packet)
-        process_queue.put(tm_packet)
-        process_event.set()
+        if tm_packet[0] != 0x18:
+            display_queue.put(ax25_packet)
+            process_queue.put(tm_packet)
+            process_event.set()
 
 
 def receive_serial():
@@ -976,7 +993,7 @@ def main():
     ax25_header.append(0x03)
     ax25_header.append(0xF0)
     
-    key_fp = open('/shared/keys/libertas_hmac_secret_keys.json', "r")
+    key_fp = open('./libertas_hmac_secret_keys.json', "r")
     json_return = json.load(key_fp)
     key_fp.close()
     spacecraft_key = json_return['libertas_key'].encode()
