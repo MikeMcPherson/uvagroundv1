@@ -199,7 +199,7 @@ def on_command(button_label):
         transmit_packet(tc_packet, ax25_header, True, False)
                   
     elif button_label == 'RESET':
-        title = '"Reset" Arguments'
+        title = '"RESET" Arguments'
         labels = ['Reset mask', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         defaults = ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']
         tooltips = ['(16-bit) Bitmask indicating which spacecraft reset operations are to be performed.',
@@ -218,7 +218,7 @@ def on_command(button_label):
         transmit_packet(tc_packet, ax25_header, False, False)
                   
     elif button_label == 'XMIT_HEALTH':
-        title = '"Transmit Health" Arguments'
+        title = '"XMIT_HEALTH" Arguments'
         labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = ['(8-bit) Number of Health Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
@@ -231,7 +231,7 @@ def on_command(button_label):
             transmit_packet(tc_packet, ax25_header, False, False)
                   
     elif button_label == 'XMIT_SCIENCE':
-        title = '"Transmit Science" Arguments'
+        title = '"XMIT_SCIENCE" Arguments'
         labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = ['(8-bit) Number of Science Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
@@ -244,7 +244,7 @@ def on_command(button_label):
             transmit_packet(tc_packet, ax25_header, False, False)
                   
     elif button_label == 'READ_MEM':
-        title = '"Read Memory" Arguments'
+        title = '"READ_MEM" Arguments'
         labels = ['Start address', 'End address', 'N/A', 'N/A', 'N/A', 'N/A']
         defaults = ['0x00F0', '0x00F3', '0x0000', '0x0000', '0x0000', '0x0000']
         tooltips = ['(16-bit) Start of memory address range to downlink.',
@@ -261,7 +261,7 @@ def on_command(button_label):
             transmit_packet(tc_packet, ax25_header, False, False)
                   
     elif button_label == 'WRITE_MEM':
-        title = '"Write Memory" Arguments'
+        title = '"WRITE_MEM" Arguments'
         labels = ['Start address', 'End address', 
                     'Contents 0', 'Contents 1', 'Contents 2', 'Contents 3']
         defaults = ['0x00F0', '0x00F3', '0x0000', '0x0000', '0x0000', '0x0000']
@@ -279,7 +279,7 @@ def on_command(button_label):
             transmit_packet(tc_packet, ax25_header, True, False)
                   
     elif button_label == 'SET_COMMS':
-        title = '"Set Params" Arguments'
+        title = '"SET_COMMS" Arguments'
         labels = ['TM Window', 'XMIT Timeout', 
                     'ACK Timeout', 'Sequence Window', 'Spacecraft Sequence', 'GS Sequence']
         defaults = ['0x01', '0x04', '0x0A', '0x02', '0x0000', '0x0000']
@@ -307,6 +307,25 @@ def on_command(button_label):
         
     elif button_label == 'GET_COMMS':
         tc_data = array.array('B', [0x0C, 0x00])
+        tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
+        transmit_packet(tc_packet, ax25_header, False, False)
+                  
+    elif button_label == 'SET_MODE':
+        title = '"SET_MODE" Arguments'
+        labels = ['Mode', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        defaults = ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']
+        tooltips = ['(8-bit) DOWNLINK=1, DATA_COLLECTION=2, LOW_POWER=3',
+                    'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        args = dialog1_run(title, labels, defaults, tooltips)
+        if dialog1_xmit:
+            tc_data = array.array('B', [0x04, 0x02])
+            tc_data.append((args[0] & 0xFF00) >> 8)
+            tc_data.append(args[0] & 0x00FF)
+            tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
+            transmit_packet(tc_packet, ax25_header, True, False)
+                  
+    elif button_label == 'GET_MODE':
+        tc_data = array.array('B', [0x0D, 0x00])
         tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
         transmit_packet(tc_packet, ax25_header, False, False)
                   
