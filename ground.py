@@ -313,13 +313,12 @@ def on_command(button_label):
     elif button_label == 'SET_MODE':
         title = '"SET_MODE" Arguments'
         labels = ['Mode', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']
+        defaults = ['0x01', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = ['(8-bit) DOWNLINK=1, DATA_COLLECTION=2, LOW_POWER=3',
                     'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
-            tc_data = array.array('B', [0x04, 0x02])
-            tc_data.append((args[0] & 0xFF00) >> 8)
+            tc_data = array.array('B', [0x0A, 0x01])
             tc_data.append(args[0] & 0x00FF)
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
             transmit_packet(tc_packet, ax25_header, True, False)
@@ -416,6 +415,10 @@ def process_received():
                 transmit_timeout_count = (tm_data[2])
                 ack_timeout = (tm_data[2])
                 sequence_number_window = (tm_data[2])
+                send_ack(sequence_numbers, spp_header_len)
+        elif tm_command == COMMAND_CODES['GET_MODE']:
+            if tm_data[1] == 0x01:
+                spacecraft_mode = (tm_data[2])
                 send_ack(sequence_numbers, spp_header_len)
             else:
                 print('Bad TM packet GET_COMMS')

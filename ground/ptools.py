@@ -163,7 +163,6 @@ def ax25_wrap(packet_type, packet, ax25_header):
         ax25_packet.append(p)
     if packet_type == 'TC':
         padding = 253 - len(ax25_packet)
-        print('Wrap padding', padding)
         if padding > 0:
             ax25_packet.extend([0x00]*padding)
     return(ax25_packet)
@@ -172,11 +171,9 @@ def ax25_wrap(packet_type, packet, ax25_header):
 def ax25_unwrap(ax25_packet):
     packet_data_length = (ax25_packet[17] << 8) + ax25_packet[18]
     padding = len(ax25_packet) - (16 + 3 + (packet_data_length + 1))
-    print('Unwrap padding', padding)
     if padding > 0:
         ax25_packet = ax25_packet[:(-padding)]
     packet = ax25_packet[16:]
-    hexdump.hexdump(packet)
     return(packet)
     
 
