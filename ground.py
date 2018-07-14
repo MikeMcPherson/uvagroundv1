@@ -375,22 +375,20 @@ def process_received():
                     del last_tc_packet[packet_sn]
         elif tm_command == COMMAND_CODES['NAK']:
             print('Received NAK')       
-        elif tm_command == COMMAND_CODES['TRANSMIT_COUNT']:
+        elif tm_command == COMMAND_CODES['XMIT_COUNT']:
             if tm_data[1] == 0x04:
                 health_payloads_pending = ((tm_data[2] << 8) + tm_data[3])
                 science_payloads_pending = ((tm_data[4] << 8) + tm_data[5])
                 send_ack(sequence_numbers, spp_header_len)
             else:
-                print('Bad TM packet TRANSMIT_COUNT')
-        elif tm_command == COMMAND_CODES['TRANSMIT_HEALTH']:
+                print('Bad TM packet XMIT_COUNT')
+        elif tm_command == COMMAND_CODES['XMIT_HEALTH']:
             send_ack(sequence_numbers, spp_header_len)
-        elif tm_command == COMMAND_CODES['TRANSMIT_SCIENCE']:
+        elif tm_command == COMMAND_CODES['XMIT_SCIENCE']:
             send_ack(sequence_numbers, spp_header_len)
-        elif tm_command == COMMAND_CODES['READ_MEMORY']:
+        elif tm_command == COMMAND_CODES['READ_MEM']:
             send_ack(sequence_numbers, spp_header_len)
-        elif tm_command == COMMAND_CODES['TRANSMIT_NOOP']:
-            send_ack(sequence_numbers, spp_header_len)
-        elif tm_command == COMMAND_CODES['GET_COMMS_PARAMS']:
+        elif tm_command == COMMAND_CODES['GET_COMMS']:
             if tm_data[1] == 0x08:
                 tm_packet_window = (tm_data[2])
                 transmit_timeout_count = (tm_data[2])
@@ -398,7 +396,7 @@ def process_received():
                 sequence_number_window = (tm_data[2])
                 send_ack(sequence_numbers, spp_header_len)
             else:
-                print('Bad TM packet GET_COMMS_PARAMS')
+                print('Bad TM packet GET_COMMS')
         else:
             pass
 
@@ -552,8 +550,8 @@ def display_packet():
                 "{:05d}".format(((int(spp_packet[(spp_header_len - 2)]) << 8) + 
                 spp_packet[(spp_header_len - 1)])))
             tv_spp = tv_spp.replace('<COMMAND>', COMMAND_NAMES[spp_packet[spp_header_len]])
-            tv_spp = tv_spp.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(spp_data)))
             
+            tv_spp = tv_spp.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(spp_data)))           
             packet_list = []
             for p in spp_data:
                 packet_list.append("\"0x{:02X}\"".format(p))
@@ -567,6 +565,9 @@ def display_packet():
             tv_spp = tv_spp.replace('<HMAC_DIGEST>', packet_string)
             
             textview_buffer.insert(textview_buffer.get_end_iter(), tv_spp)
+            
+            packet_string = payload_decode(spp_data)
+            textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
 
         tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(ax25_packet[0:7]))
         tv_ax25 = tv_ax25.replace('<AX25_SOURCE>', ax25_callsign(ax25_packet[7:14]))
@@ -584,6 +585,25 @@ def display_packet():
         end_mark = textview_buffer.create_mark('END', textview_buffer.get_end_iter(), True)
         textview.scroll_mark_onscreen(end_mark)
     return(True)
+
+
+def payload_decode(spp_data):
+    global COMMAND_CODES
+    command = spp_data[0]
+    if command == COMMAND_CODES['XMIT_SCIENCE']:
+        packet_string = ('    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n' + 
+            '    "latitude":"<LATITUDE>",\n')
+    else:
+        packet_string = ''
+    return(packet_string)
 
 
 def open_serial_device():
@@ -765,17 +785,16 @@ def main():
     COMMAND_NAMES = {
                         0x05 : 'ACK',
                         0x06 : 'NAK',
-                        0x7F : 'CEASE_TRANSMIT',
+                        0x7F : 'CEASE_XMIT',
                         0x09 : 'NOOP',
-                        0x0A : 'TRANSMIT_NOOP',
                         0x04 : 'RESET',
-                        0x01 : 'TRANSMIT_COUNT',
-                        0x02 : 'TRANSMIT_HEALTH',
-                        0x03 : 'TRANSMIT_SCIENCE',
-                        0x08 : 'READ_MEMORY',
-                        0x07 : 'WRITE_MEMORY',
-                        0x0B : 'SET_COMMS_PARAMS',
-                        0x0C : 'GET_COMMS_PARAMS'
+                        0x01 : 'XMIT_COUNT',
+                        0x02 : 'XMIT_HEALTH',
+                        0x03 : 'XMIT_SCIENCE',
+                        0x08 : 'READ_MEM',
+                        0x07 : 'WRITE_MEM',
+                        0x0B : 'SET_COMMS',
+                        0x0C : 'GET_COMMS'
                         }
     COMMAND_CODES = {}
     for code, cmd in COMMAND_NAMES.items():

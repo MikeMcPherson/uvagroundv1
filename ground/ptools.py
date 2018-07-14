@@ -28,6 +28,7 @@ import time
 import hashlib
 import hmac
 from ground.gpstime import gpsFromUTC
+import hexdump
 
 
 def gps_time():
@@ -65,10 +66,13 @@ def spp_wrap(packet_type, data, spp_header_len, sequence_number, key):
     packet.append(sequence_number & 0x00FF)
     for d in data:
         packet.append(d)
-    padding = 190 - len(data)
-    if padding > 0:
-        packet.extend([0x00]*padding)
-    digest = hmac_sign(packet[(spp_header_len - 2):], key)
+    if packet_type == 'TC':
+        padding = 190 - len(data)
+        if padding > 0:
+            packet.extend([0x00]*padding)
+    hmac_scope = packet[(spp_header_len - 2):]
+    hexdump.hexdump(hmac_scope)
+    digest = hmac_sign(hmac_scope, key)
     packet.extend(digest)
     packet_info = packet.buffer_info()
     packet[2] = packet_info[1]
@@ -195,5 +199,18 @@ def ax25_callsign(b_callsign):
     return(c_callsign)
 
 
-def validate_packet(packet_type, data, sequence_number, key):
-    return(0)
+def validate_packet(packet_type, packet, spp_header_len, sequence_number, key):
+    hmac_scope = packet[(spp_header_len - 2):-32]
+    ground_digest = packet[-32:]
+    print('Libertas: hmac_scope')
+    hexdump.hexdump(hmac_scope)
+    validation_digest = hmac_sign(hmac_scope, key)
+    print('Libertas: ground_digest', type(ground_digest))
+    hexdump.hexdump(ground_digest)
+    print('Libertas: validation_digest', type(validation_digest))
+    hexdump.hexdump(validation_digest)
+    validation_mask = 0
+    for idx, v in enumerate(ground_digest):
+        if v != validation_digest[idx]:
+            validation_mask = 1
+    return(validation_mask)
