@@ -24,11 +24,10 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
-import hashlib
-import hmac
 import array
-import time
-import gpstime
+from ground.ptools import init_ax25_header,spp_wrap,spp_unwrap,lithium_wrap,lithium_unwrap
+from ground.ptools import ax25_wrap,ax25_unwrap,kiss_wrap,kiss_unwrap,ax25_callsign,validate_packet
+import ground.gpstime
 import serial
 import json
 import random
@@ -36,27 +35,11 @@ import socket
 
 
 """
-Helpers
-"""
-
-def gps_time():
-    time_utc = time.gmtime(time.time())
-    gps_tm = gpstime.gpsFromUTC(time_utc[0], time_utc[1], time_utc[2], time_utc[3], time_utc[4], time_utc[5])
-    return(gps_tm[0], gps_tm[1])
-
-
-def hmac_sign(packet, key):
-    digest = hmac.new(key, msg=packet, digestmod=hashlib.sha256).digest()
-    return(digest)
-
-
-"""
 Transmit and receive packets
 """
 
-def transmit_packet(packet, sequence_number, tx_obj):
-    global use_serial
-    ax25_packet = ax25_wrap(packet)
+def transmit_packet(packet, ax25_header, sequence_number, tx_obj, use_serial):
+    ax25_packet = ax25_wrap(packet, ax25_header)
     if use_serial:
         lithium_packet = lithium_wrap(ax25_packet)
         tx_obj.write(lithium_packet)
@@ -69,9 +52,7 @@ def transmit_packet(packet, sequence_number, tx_obj):
     return(sequence_number)
 
 
-def receive_packet(rx_obj):
-    global oa_key
-    global use_serial
+def receive_packet(rx_obj, use_serial, oa_key):
     if use_serial:
         serial_buffer = rx_obj.read(8)
         lithium_packet = array.array('B', [])
@@ -97,30 +78,31 @@ def receive_packet(rx_obj):
     return(packet, oa_packet)
 
 
-def send_ack(sequence_numbers, sequence_number, key, tx_obj):
+def send_ack(sequence_numbers, sequence_number, ax25_header, key, tx_obj, use_serial):
     data = array.array('B', [0x05, 0x00])
     if sequence_numbers.buffer_info()[1] > 0:
         for s in sequence_numbers:
             data.append(s)
         data[1] = (sequence_numbers.buffer_info()[1] & 0xFF)
-    packet = spp_wrap('TM', data, sequence_number, key)
-    sequence_number = transmit_packet(packet, sequence_number, tx_obj)
-    return(packet, sequence_number)
+    tm_packet = spp_wrap('TM', data, sequence_number, key)
+    sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial)
+    return(tm_packet, sequence_number)
 
 
-def send_nak(sequence_numbers, sequence_number, key, tx_obj):
+def send_nak(sequence_numbers, sequence_number, ax25_header, key, tx_obj, use_serial):
     data = array.array('B', [0x06, 0x00])
     if sequence_numbers.buffer_info()[1] > 0:
         for s in sequence_numbers:
             data.append(s)
         data[1] = (sequence_numbers.buffer_info()[1] & 0xFF)
-    packet = spp_wrap('TM', data, sequence_number, key)
-    (last_tm_packet, sequence_number) = transmit_packet(packet, sequence_number, tx_obj)
-    return(packet, sequence_number)
+    tm_packet = spp_wrap('TM', data, sequence_number, key)
+    (last_tm_packet, sequence_number) = transmit_packet(tm_packet, ax25_header, sequence_number, 
+                                                        tx_obj, use_serial)
+    return(tm_packet, sequence_number)
 
 
 def transmit_health_packet(health, health_payload_length, health_payloads_pending, 
-                            sequence_number, key, tx_obj):
+                            sequence_number, ax25_header, key, tx_obj, use_serial):
     data = array.array('B', [0x02])
     payloads_this_packet = min(health_payloads_pending, 4)
     data.append((payloads_this_packet * health_payload_length) + 1)
@@ -129,13 +111,13 @@ def transmit_health_packet(health, health_payload_length, health_payloads_pendin
         for h in health:
             data.append(h)
     tm_packet = spp_wrap('TM', data, sequence_number, key)
-    sequence_number = transmit_packet(tm_packet, sequence_number, tx_obj) 
+    sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial) 
     health_payloads_pending = max((health_payloads_pending - payloads_this_packet), 0)                     
     return(tm_packet, sequence_number, health_payloads_pending)
 
 
 def transmit_science_packet(science, science_payload_length, science_payloads_pending, 
-                            sequence_number, key, tx_obj):
+                            sequence_number, ax25_header, key, tx_obj, use_serial):
     data = array.array('B', [0x03])
     payloads_this_packet = min(science_payloads_pending, 2)
     data.append((payloads_this_packet * science_payload_length) + 1)
@@ -144,123 +126,9 @@ def transmit_science_packet(science, science_payload_length, science_payloads_pe
         for s in science:
             data.append(s)
     tm_packet = spp_wrap('TM', data, sequence_number, key)
-    sequence_number = transmit_packet(tm_packet, sequence_number, tx_obj) 
+    sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial) 
     science_payloads_pending = max((science_payloads_pending - payloads_this_packet), 0)                     
     return(tm_packet, sequence_number, science_payloads_pending)
-
-
-"""
-Wrap, unwrap, and verify packets
-"""
-
-def spp_wrap(packet_type, data, sequence_number, key):
-    if packet_type == 'TM':
-        packet = array.array('B', [0x08, 0x00, 0x00])
-    else:
-        packet = array.array('B', [0x18, 0x00, 0x00])
-    gps_tm = gps_time()
-    gps_week = "{:04d}".format(gps_tm[0])
-    gps_sow = "{:014.7f}".format(gps_tm[1])
-    for c in gps_week:
-        packet.append(ord(c))
-    for c in gps_sow:
-        packet.append(ord(c))
-    packet.append((sequence_number & 0xFF00) >> 8)
-    packet.append(sequence_number & 0x00FF)
-    for d in data:
-        packet.append(d)
-    digest = hmac_sign(packet[21:], key)
-    for d in digest:
-        packet.append(d)
-    packet_info = packet.buffer_info()
-    packet[2] = packet_info[1]
-    return(packet)
-
-
-def spp_unwrap(packet):
-    data = packet[23:-32]
-    return(data)
-
-
-def lithium_wrap(packet):
-    lithium_packet = array.array('B', [0x48, 0x65, 0x20, 0x04, 0x00, 0x00, 0x00, 0x00])
-    for p in packet:
-        lithium_packet.append(p)
-    lithium_packet.append(0x00)
-    lithium_packet.append(0x00)
-    lithium_packet[5] = packet.buffer_info()[1]
-    ck_a = 0
-    ck_b = 0
-    for p in lithium_packet[2:6]:
-        ck_a = ck_a + p
-        ck_b = ck_b + ck_a
-    lithium_packet[6] = ck_a & 0xFF
-    lithium_packet[7] = ck_b & 0xFF
-    ck_a = 0
-    ck_b = 0
-    for p in lithium_packet[2:-2]:
-        ck_a = ck_a + p
-        ck_b = ck_b + ck_a
-    lithium_packet[-2] = ck_a & 0xFF
-    lithium_packet[-1] = ck_b & 0xFF
-    return(lithium_packet)
-
-
-def lithium_unwrap(lithium_packet):
-    packet = lithium_packet[8:-2]
-    return(packet)
-
-
-def ax25_wrap(packet):
-    global ax25_header
-    ax25_packet = array.array('B', [])
-    for h in ax25_header:
-        ax25_packet.append(h)
-    for p in packet:
-        ax25_packet.append(p)
-    return(ax25_packet)
-
-
-def ax25_unwrap(ax25_packet):
-    packet = ax25_packet[16:]
-    return(packet)
-    
-
-FEND = 0xC0
-FESC = 0xDB
-TFEND = 0xDC
-TFESC = 0xDD
-
-def kiss_wrap(packet):
-    kiss_packet = array.array('B', [FEND, 0x00])
-    for p in packet:
-        if p == FEND:
-            kiss_packet.append(FESC)
-            kiss_packet.append(TFEND)
-        elif p == FESC:
-            kiss_packet.append(FESC)
-            kiss_packet.append(TFESC)
-        else:
-            kiss_packet.append(p)
-    kiss_packet.append(FEND)
-    return(kiss_packet)
-
-
-def kiss_unwrap(kiss_packet):
-    packet = array.array('B', [])
-    for idx, k in enumerate(kiss_packet[2:]):
-        if k == FEND:
-            pass
-        elif k == FESC:
-            if (kiss_packet[idx + 3] == TFEND) or (kiss_packet[idx + 3] == TFESC):
-                continue
-        else:
-            packet.append(k)
-    return(packet)
-
-
-def validate_packet(packet_type, data, sequence_number, key):
-    return(0)
 
 
 """
@@ -268,25 +136,21 @@ Main
 """
 
 def main():
-    global ax25_header
-    global oa_key
-    global use_serial
     
     """
     Commands
     """
     COMMAND_ACK = 0x05
-    COMMAND_CEASE_TRANSMIT = 0x7F
+    COMMAND_CEASE_XMIT = 0x7F
     COMMAND_NOOP = 0x09
-    COMMAND_TRANSMIT_NOOP = 0x0A
     COMMAND_RESET = 0x04
-    COMMAND_TRANSMIT_COUNT = 0x01
-    COMMAND_TRANSMIT_HEALTH = 0x02
-    COMMAND_TRANSMIT_SCIENCE = 0x03
-    COMMAND_READ_MEMORY = 0x08
-    COMMAND_WRITE_MEMORY = 0x07
-    COMMAND_SET_COMMS_PARAMS = 0x0B
-    COMMAND_GET_COMMS_PARAMS = 0x0C
+    COMMAND_XMIT_COUNT = 0x01
+    COMMAND_XMIT_HEALTH = 0x02
+    COMMAND_XMIT_SCIENCE = 0x03
+    COMMAND_READ_MEM = 0x08
+    COMMAND_WRITE_MEM = 0x07
+    COMMAND_SET_COMMS = 0x0B
+    COMMAND_GET_COMMS = 0x0C
     
     program_name = 'Libertas Simulator'
     program_version = 'V1.0'
@@ -306,23 +170,15 @@ def main():
     ack_timeout = 10
     sequence_number_window = 2
     last_tm_packet = {}
-    use_serial = True
+    use_serial = False
     rx_port = 9501
     tx_port = 9500
+    dst_callsign = 'W4UVA '
+    dst_ssid = 0
+    src_callsign = 'W4UVA '
+    src_ssid = 11
     
     print(program_name, ' ', program_version)
-    
-    dst_callsign = 'W4UVA '
-    src_callsign = 'W4UVA '
-    ax25_header = array.array('B', [])
-    for c in dst_callsign:
-        ax25_header.append(ord(c) << 1)
-    ax25_header.append(0)
-    for c in src_callsign:
-        ax25_header.append(ord(c) << 1)
-    ax25_header.append(0)
-    ax25_header.append(0x03)
-    ax25_header.append(0xF0)
     
     health = array.array('B', [])
     for i in range(health_payload_length):
@@ -339,6 +195,8 @@ def main():
     oa_key = json_return['oa_key'].encode()
     oa_packet = False
     
+    ax25_header = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
+    
     if use_serial:
         rx_obj = serial.Serial(serial_device_name, baudrate=9600)
         tx_obj = rx_obj
@@ -349,7 +207,7 @@ def main():
         tx_obj.connect(('gs-s-2.w4uva.org', tx_port))
     
     while True:
-        (tc_packet, oa_packet) = receive_packet(rx_obj)
+        (tc_packet, oa_packet) = receive_packet(rx_obj, use_serial, oa_key)
         if not oa_packet:
             ground_sequence_number += 1
             if ground_sequence_number > 65535:
@@ -377,34 +235,26 @@ def main():
                     packet_sn = ((tc_data[i] << 8) + tc_data[i+1])
                     del last_tm_packet[packet_sn]
                         
-        elif tc_command == COMMAND_CEASE_TRANSMIT:
+        elif tc_command == COMMAND_CEASE_XMIT:
             print('Received Cease Transmit')
             last_sn = spacecraft_sequence_number
             (tm_packet, spacecraft_sequence_number) = send_ack(sequence_numbers, 
-                spacecraft_sequence_number, spacecraft_key, tx_obj)
+                spacecraft_sequence_number, ax25_header, spacecraft_key, tx_obj, use_serial)
             exit()
                       
         elif tc_command == COMMAND_NOOP:
             print('Received NOOP')
             last_sn = spacecraft_sequence_number
             (tm_packet, spacecraft_sequence_number) = send_ack(sequence_numbers, 
-                spacecraft_sequence_number, spacecraft_key, tx_obj)
-                      
-        elif tc_command == COMMAND_TRANSMIT_NOOP:
-            print('Received Transmit NOOP')
-            data = array.array('B', [0x0A, 0x00])
-            tm_packet = spp_wrap('TM', data, spacecraft_sequence_number, spacecraft_key)
-            last_sn = spacecraft_sequence_number
-            spacecraft_sequence_number = transmit_packet(tm_packet, spacecraft_sequence_number, tx_obj)
-            last_tm_packet.update({last_sn:last_tm_packet})
-                      
+                spacecraft_sequence_number, ax25_header, spacecraft_key, tx_obj, use_serial)
+         
         elif tc_command == COMMAND_RESET:
             print('Received Reset')
             last_sn = spacecraft_sequence_number
             (tm_packet, spacecraft_sequence_number) = send_ack(sequence_numbers, 
-                spacecraft_sequence_number, spacecraft_key, tx_obj)
+                spacecraft_sequence_number, ax25_header, spacecraft_key, tx_obj, use_serial)
                       
-        elif tc_command == COMMAND_TRANSMIT_COUNT:
+        elif tc_command == COMMAND_XMIT_COUNT:
             print('Received Transmit Count Pending Packets')
             data = array.array('B', [0x01, 0x04])
             data.append((health_payloads_pending & 0xFF00) >> 8)
@@ -413,26 +263,27 @@ def main():
             data.append(science_payloads_pending & 0xFF)
             tm_packet = spp_wrap('TM', data, spacecraft_sequence_number, spacecraft_key)
             last_sn = spacecraft_sequence_number
-            spacecraft_sequence_number = transmit_packet(tm_packet, spacecraft_sequence_number, tx_obj)
+            spacecraft_sequence_number = transmit_packet(tm_packet, ax25_header, spacecraft_sequence_number, 
+                                                            tx_obj, use_serial)
             last_tm_packet.update({last_sn:last_tm_packet})
                       
-        elif tc_command == COMMAND_TRANSMIT_HEALTH:
+        elif tc_command == COMMAND_XMIT_HEALTH:
             print('Received Transmit Health Packets')
             last_sn = spacecraft_sequence_number
             (tm_packet, spacecraft_sequence_number, health_payloads_pending) = transmit_health_packet(health, 
-                health_payload_length, health_payloads_pending, spacecraft_sequence_number, 
-                spacecraft_key, tx_obj)
+                health_payload_length, health_payloads_pending, spacecraft_sequence_number, ax25_header, 
+                spacecraft_key, tx_obj, use_serial)
             last_tm_packet.update({last_sn:last_tm_packet})
         
-        elif tc_command == COMMAND_TRANSMIT_SCIENCE:
+        elif tc_command == COMMAND_XMIT_SCIENCE:
             print('Received Transmit Science Packets')
             last_sn = spacecraft_sequence_number
             (tm_packet, spacecraft_sequence_number, science_payloads_pending) = transmit_science_packet(science, 
-                science_payload_length, science_payloads_pending, spacecraft_sequence_number, 
-                spacecraft_key, tx_obj)
+                science_payload_length, science_payloads_pending, spacecraft_sequence_number, ax25_header, 
+                spacecraft_key, tx_obj, use_serial)
             last_tm_packet.update({last_sn:last_tm_packet})
                       
-        elif tc_command == COMMAND_READ_MEMORY:
+        elif tc_command == COMMAND_READ_MEM:
             print('Received Read Memory')
             data = array.array('B', [0x08, 0x00])
             for d in tc_data[2:6]:
@@ -444,16 +295,17 @@ def main():
                 data.append(random.randint(0, 255))
             tm_packet = spp_wrap('TM', data, spacecraft_sequence_number, spacecraft_key)
             last_sn = spacecraft_sequence_number
-            spacecraft_sequence_number = transmit_packet(tm_packet, spacecraft_sequence_number, tx_obj)
+            spacecraft_sequence_number = transmit_packet(tm_packet, ax25_header, spacecraft_sequence_number, 
+                                                            tx_obj, use_serial)
             last_tm_packet.update({last_sn:last_tm_packet})
                       
-        elif tc_command == COMMAND_WRITE_MEMORY:
+        elif tc_command == COMMAND_WRITE_MEM:
             print('Received Write Memory')
             last_sn = spacecraft_sequence_number
             (tm_packet, spacecraft_sequence_number) = send_ack(sequence_numbers, 
-                spacecraft_sequence_number, spacecraft_key, tx_obj)
+                spacecraft_sequence_number, ax25_header, spacecraft_key, tx_obj, use_serial)
 
-        elif tc_command == COMMAND_SET_COMMS_PARAMS:
+        elif tc_command == COMMAND_SET_COMMS:
             print('Received Set Comms Params')
             tm_packet_window = tc_data[2]
             transmit_timeout_count = tc_data[3]
@@ -463,9 +315,9 @@ def main():
             ground_sequence_number = ((tc_data[8] << 8) + tc_data[9])
             last_sn = spacecraft_sequence_number
             (tm_packet, spacecraft_sequence_number) = send_ack(sequence_numbers, 
-                spacecraft_sequence_number, spacecraft_key, tx_obj)
+                spacecraft_sequence_number, ax25_header, spacecraft_key, tx_obj, use_serial)
                 
-        elif tc_command == COMMAND_GET_COMMS_PARAMS:
+        elif tc_command == COMMAND_GET_COMMS:
             print('Received Get Comms Params')
             data = array.array('B', [0x0C, 0x08])
             data.append(tm_packet_window)
@@ -478,7 +330,8 @@ def main():
             data.append(ground_sequence_number & 0xFF)
             tm_packet = spp_wrap('TM', data, spacecraft_sequence_number, spacecraft_key)
             last_sn = spacecraft_sequence_number
-            spacecraft_sequence_number = transmit_packet(tm_packet, spacecraft_sequence_number, tx_obj)
+            spacecraft_sequence_number = transmit_packet(tm_packet, ax25_header, spacecraft_sequence_number, 
+                                                            tx_obj, use_serial)
             last_tm_packet.update({last_sn:last_tm_packet})
         
         else:
@@ -491,14 +344,14 @@ def main():
                 last_sn = spacecraft_sequence_number
                 (tm_packet, spacecraft_sequence_number, health_payloads_pending) = transmit_health_packet(
                     health, health_payload_length, health_payloads_pending, 
-                    spacecraft_sequence_number, spacecraft_key, tx_obj)
+                    spacecraft_sequence_number, ax25_header, spacecraft_key, tx_obj, use_serial)
                 last_tm_packet.update({last_sn:tm_packet})
         elif doing_science_payloads:
             if science_payloads_pending > 0:
                 last_sn = spacecraft_sequence_number
                 (tm_packet, spacecraft_sequence_number, science_payloads_pending) = transmit_science_packet(
                     science, science_payload_length, science_payloads_pending, 
-                    spacecraft_sequence_number, spacecraft_key, tx_obj)
+                    spacecraft_sequence_number, ax25_header, spacecraft_key, tx_obj, use_serial)
                 last_tm_packet.update({last_sn:tm_packet})
         else:
             noop = 1
