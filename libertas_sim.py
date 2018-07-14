@@ -24,8 +24,10 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
+import configparser
+import logging
 import array
-from ground.ptools import init_ax25_header,spp_wrap,spp_unwrap,lithium_wrap,lithium_unwrap
+from ground.ptools import is_valid_packet, init_ax25_header,spp_wrap,spp_unwrap,lithium_wrap,lithium_unwrap
 from ground.ptools import ax25_wrap,ax25_unwrap,kiss_wrap,kiss_unwrap,ax25_callsign,validate_packet
 import ground.gpstime
 import serial
@@ -33,6 +35,7 @@ import json
 import random
 import socket
 import hexdump
+import multiprocessing as mp
 
 
 """
@@ -40,7 +43,7 @@ Transmit and receive packets
 """
 
 def transmit_packet(packet, ax25_header, sequence_number, tx_obj, use_serial):
-    ax25_packet = ax25_wrap(packet, ax25_header)
+    ax25_packet = ax25_wrap('TM', packet, ax25_header)
     if use_serial:
         lithium_packet = lithium_wrap(ax25_packet)
         tx_obj.write(lithium_packet)
@@ -53,30 +56,28 @@ def transmit_packet(packet, ax25_header, sequence_number, tx_obj, use_serial):
     return(sequence_number)
 
 
-def receive_packet(rx_obj, use_serial, oa_key):
-    if use_serial:
-        serial_buffer = rx_obj.read(8)
-        lithium_packet = array.array('B', [])
-        for s in serial_buffer:
-            lithium_packet.append(s)
-        serial_buffer = rx_obj.read(lithium_packet[5] + 2)
-        for s in serial_buffer:
-            lithium_packet.append(s)
-        ax25_packet = lithium_unwrap(lithium_packet)
-    else:
-        kiss_string = rx_obj.recv(1024)
-        kiss_packet = array.array('B', [])
-        for c in kiss_string:
-            kiss_packet.append(c)
-        ax25_packet = kiss_unwrap(kiss_packet)
-    packet = ax25_unwrap(ax25_packet)
-    oa_packet = False
-    if len(packet) == 17:
-        oa_packet = True
-        for idx, c in enumerate(oa_key):
-            if c != packet[idx]:
-                oa_packet = False
-    return(packet, oa_packet)
+def receive_packet(rx_obj, use_serial, q_receive_packet):
+    while True:
+        if use_serial:
+            serial_buffer = rx_obj.read(8)
+            rcv_packet = array.array('B', [])
+            for s in serial_buffer:
+                rcv_packet.append(s)
+            serial_buffer = rx_obj.read(rcv_packet[5] + 2)
+            for s in serial_buffer:
+                rcv_packet.append(s)
+        else:
+            rcv_string = rx_obj.recv(1024)
+            rcv_packet = array.array('B', [])
+            for c in rcv_string:
+                rcv_packet.append(c)
+        if len(rcv_packet) >= 20:
+            if use_serial:
+                ax25_packet = lithium_unwrap(rcv_packet)
+            else:
+                ax25_packet = kiss_unwrap(rcv_packet)
+            q_receive_packet.put(ax25_packet)
+    return()
 
 
 def send_ack(sequence_numbers, sequence_number, ax25_header, spp_header_len, key, tx_obj, use_serial):
@@ -97,8 +98,7 @@ def send_nak(sequence_numbers, sequence_number, ax25_header, spp_header_len, key
             data.append(s)
         data[1] = (sequence_numbers.buffer_info()[1] & 0xFF)
     tm_packet = spp_wrap('TM', data, spp_header_len, sequence_number, key)
-    (last_tm_packet, sequence_number) = transmit_packet(tm_packet, ax25_header, sequence_number, 
-                                                        tx_obj, use_serial)
+    sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial)
     return(tm_packet, sequence_number)
 
 
@@ -154,7 +154,7 @@ def main():
     COMMAND_GET_COMMS = 0x0C
     
     program_name = 'Libertas Simulator'
-    program_version = 'V1.0'
+    program_version = 'V1.1'
     serial_device_name = 'pty_ground'
     spp_header_len = 15
     spacecraft_sequence_number = 1
@@ -180,22 +180,26 @@ def main():
     src_callsign = 'W4UVA '
     src_ssid = 11
     
-    print(program_name, ' ', program_version)
-    
+    config = configparser.ConfigParser()
+    config.read(['ground.ini'])
+    debug = config['general'].getboolean('debug')
+    use_serial = config['comms'].getboolean('use_serial')
+    spacecraft_key = config['comms']['spacecraft_key'].encode()
+    ground_station_key = config['comms']['ground_station_key'].encode()
+    oa_key = config['comms']['oa_key'].encode()
+
+    if debug:
+        logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
+    else:
+        logging.basicConfig(filename='ground.log', level=logging.INFO, format='%(asctime)s %(message)s')
+    logging.info('%s %s: Run started', program_name, program_version)
+
     health = array.array('B', [])
     for i in range(health_payload_length):
         health.append(random.randint(0, 255))
     science = array.array('B', [])
     for i in range(science_payload_length):
         science.append(random.randint(0, 255))
-    
-    key_fp = open('/shared/keys/libertas_hmac_secret_keys.json', "r")
-    json_return = json.load(key_fp)
-    key_fp.close()
-    spacecraft_key = json_return['libertas_key'].encode()
-    ground_station_key = json_return['ground_station_key'].encode()
-    oa_key = json_return['oa_key'].encode()
-    oa_packet = False
     
     ax25_header = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
     
@@ -208,29 +212,37 @@ def main():
         tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tx_obj.connect(('gs-s-2.w4uva.org', tx_port))
     
+    q_receive_packet = mp.Queue()
+    p_receive_packet = mp.Process(target=receive_packet, args=(rx_obj, use_serial, q_receive_packet))
+    p_receive_packet.start()
+    
     while True:
-        (tc_packet, oa_packet) = receive_packet(rx_obj, use_serial, oa_key)
-        validation_mask = validate_packet('TC', tc_packet, spp_header_len, ground_sequence_number, ground_station_key)
-        if validation_mask != 0:
-            spacecraft_sequence_number = send_nak(sequence_numbers, sequence_number, ax25_header, 
-                                                    spp_header_len, spacecraft_key, tx_obj, use_serial)
+        ax25_packet = q_receive_packet.get()
+        is_spp_packet, is_oa_packet = is_valid_packet('TC', ax25_packet, spp_header_len, oa_key)
+        if not is_spp_packet:
             break
-        if not oa_packet:
+        tc_packet = ax25_unwrap(ax25_packet)
+        if is_oa_packet:
+            tc_command = tc_packet[16]
+        else:
             ground_sequence_number = ground_sequence_number + 1
             if ground_sequence_number > 65535:
                 ground_sequence_number = 1
+            sequence_numbers = array.array('B', tc_packet[(spp_header_len - 2):spp_header_len])
+            validation_mask = validate_packet('TC', tc_packet, spp_header_len, ground_sequence_number, 
+                                                ground_station_key)
+            if validation_mask != 0:
+                spacecraft_sequence_number = send_nak(sequence_numbers, spacecraft_sequence_number, ax25_header, 
+                                                        spp_header_len, spacecraft_key, tx_obj, use_serial)
+                break
             tc_data, gps_week, gps_sow = spp_unwrap(tc_packet, spp_header_len)
             tc_command = tc_data[0]
-            sequence_numbers = array.array('B', tc_packet[(spp_header_len - 2):spp_header_len])
-        if oa_packet:
-            if tc_packet[16] == 0x31:
-                print("Libertas received OA PING_RETURN_COMMAND")
-            elif tc_packet[16] == 0x33:
-                print("Libertas received OA RADIO_RESET_COMMAND")
-            elif tc_packet[16] == 0x34:
-                print("Libertas received OA PIN_TOGGLE_COMMAND")
-            else:
-                print("Libertas received OA invalid command")
+        if tc_command == 0x31:
+            print("Libertas received OA PING_RETURN_COMMAND")
+        elif tc_command == 0x33:
+            print("Libertas received OA RADIO_RESET_COMMAND")
+        elif tc_command == 0x34:
+            print("Libertas received OA PIN_TOGGLE_COMMAND")
         elif tc_packet[0] == 0x08:
             print("Libertas received my own packet")
         elif tc_command == COMMAND_ACK:
@@ -246,6 +258,10 @@ def main():
             last_sn = spacecraft_sequence_number
             (tm_packet, spacecraft_sequence_number) = send_ack(sequence_numbers, 
                 spacecraft_sequence_number, ax25_header, spp_header_len, spacecraft_key, tx_obj, use_serial)
+            p_receive_packet.terminate()
+            rx_obj.close()
+            tx_obj.close()
+            logging.info('%s %s: Run ended', program_name, program_version)
             exit()
                       
         elif tc_command == COMMAND_NOOP:

@@ -42,6 +42,24 @@ def hmac_sign(packet, key):
     return(digest)
     
     
+def is_valid_packet(packet_type, ax25_packet, spp_header_len, oa_key):
+    is_oa_packet = False
+    is_spp_packet = False
+    if len(ax25_packet) == 33:
+        is_oa_packet = True
+        for idx, c in enumerate(oa_key):
+            if c != ax25_packet[(idx + 16)]:
+                is_oa_packet = False
+    if not is_oa_packet:
+        is_spp_packet = True
+        packet_min_len = 65
+        if len(ax25_packet) < packet_min_len:
+            is_spp_packet = False
+        if (ax25_packet[14] != 0x03) or (ax25_packet[15] != 0xF0):
+            is_spp_packet = False
+    return(is_spp_packet, is_oa_packet)
+
+
 def init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid):
     ax25_header = array.array('B', [])
     for c in dst_callsign:
@@ -66,16 +84,11 @@ def spp_wrap(packet_type, data, spp_header_len, sequence_number, key):
     packet.append(sequence_number & 0x00FF)
     for d in data:
         packet.append(d)
-    if packet_type == 'TC':
-        padding = 190 - len(data)
-        if padding > 0:
-            packet.extend([0x00]*padding)
     hmac_scope = packet[(spp_header_len - 2):]
-    hexdump.hexdump(hmac_scope)
     digest = hmac_sign(hmac_scope, key)
     packet.extend(digest)
     packet_info = packet.buffer_info()
-    packet[2] = packet_info[1]
+    packet[2] = packet_info[1] - 3 - 1
     return(packet)
 
 
@@ -142,17 +155,28 @@ def lithium_unwrap(lithium_packet):
     return(tm_packet)
 
 
-def ax25_wrap(packet, ax25_header):
+def ax25_wrap(packet_type, packet, ax25_header):
     ax25_packet = array.array('B', [])
     for h in ax25_header:
         ax25_packet.append(h)
     for p in packet:
         ax25_packet.append(p)
+    if packet_type == 'TC':
+        padding = 253 - len(ax25_packet)
+        print('Wrap padding', padding)
+        if padding > 0:
+            ax25_packet.extend([0x00]*padding)
     return(ax25_packet)
 
 
 def ax25_unwrap(ax25_packet):
+    packet_data_length = (ax25_packet[17] << 8) + ax25_packet[18]
+    padding = len(ax25_packet) - (16 + 3 + (packet_data_length + 1))
+    print('Unwrap padding', padding)
+    if padding > 0:
+        ax25_packet = ax25_packet[:(-padding)]
     packet = ax25_packet[16:]
+    hexdump.hexdump(packet)
     return(packet)
     
 
@@ -202,13 +226,7 @@ def ax25_callsign(b_callsign):
 def validate_packet(packet_type, packet, spp_header_len, sequence_number, key):
     hmac_scope = packet[(spp_header_len - 2):-32]
     ground_digest = packet[-32:]
-    print('Libertas: hmac_scope')
-    hexdump.hexdump(hmac_scope)
     validation_digest = hmac_sign(hmac_scope, key)
-    print('Libertas: ground_digest', type(ground_digest))
-    hexdump.hexdump(ground_digest)
-    print('Libertas: validation_digest', type(validation_digest))
-    hexdump.hexdump(validation_digest)
     validation_mask = 0
     for idx, v in enumerate(ground_digest):
         if v != validation_digest[idx]:

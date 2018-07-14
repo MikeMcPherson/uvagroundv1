@@ -23,13 +23,15 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
+import configparser
+import logging
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from gi.repository import GObject
 import array
 import time
-from ground.ptools import init_ax25_header,spp_wrap,spp_unwrap,lithium_wrap,lithium_unwrap
+from ground.ptools import is_valid_packet, init_ax25_header,spp_wrap,spp_unwrap,lithium_wrap,lithium_unwrap
 from ground.ptools import ax25_wrap,ax25_unwrap,kiss_wrap,kiss_unwrap,ax25_callsign,validate_packet
 import serial
 import json
@@ -39,7 +41,7 @@ import pprint
 import socket
 
 program_name = 'UVa Libertas Ground Station'
-program_version = '1.1'
+program_version = 'V1.1'
 
 
 """
@@ -361,7 +363,8 @@ def process_received():
         spacecraft_sequence_number += 1
         if spacecraft_sequence_number > 65535:
             spacecraft_sequence_number = 1
-        validation_mask = validate_packet('TC', tm_packet, spacecraft_sequence_number, spacecraft_key)
+        validation_mask = validate_packet('TC', tm_packet, spp_header_len, spacecraft_sequence_number, 
+                                            spacecraft_key)
         tm_data, gps_week, gpw_sow = spp_unwrap(tm_packet, spp_header_len)
         tm_command = tm_data[0]
         sequence_numbers = array.array('B', tm_packet[(spp_header_len - 2):spp_header_len])
@@ -462,22 +465,12 @@ def write_buffer(buffer_filename):
     fobj.close()
 
 
-def is_oa_packet(packet):
-    global oa_key
-    oa_packet = False
-    if len(packet) >= 17:
-        oa_packet = True
-        for idx, c in enumerate(oa_key):
-            if c != packet[idx]:
-                oa_packet = False
-    return(oa_packet)
-
-
 """
 Display packet in scrolling window
 """
 
 def display_packet():
+    global oa_key
     global spp_header_len
     global textview
     global textview_buffer
@@ -486,8 +479,8 @@ def display_packet():
     global COMMAND_NAMES
     if not display_queue.empty():
         ax25_packet = display_queue.get()
+        is_spp_packet, is_oa_packet = is_valid_packet('TM', ax25_packet, spp_header_len, oa_key)
         spp_packet = ax25_unwrap(ax25_packet)
-        oa_packet = is_oa_packet(spp_packet)
         spp_data, gps_week, gps_sow = spp_unwrap(spp_packet, spp_header_len)
         if first_packet:
             textview_buffer.insert(textview_buffer.get_end_iter(), "{\n\"packets\" : [\n")
@@ -512,8 +505,7 @@ def display_packet():
             '    "ax25_packet_length":"<AX25_PACKET_LENGTH>",\n' + 
             '    "ax25_packet":[<AX25_PACKET>]\n')
             
-        if oa_packet:
-            valid_packet = False
+        if is_oa_packet:
             tv_header = tv_header.replace('<SENDER>', 'ground')    
             tv_header = tv_header.replace('<PACKET_TYPE>', 'OA')
             if spp_packet[16] == 0x31:
@@ -525,25 +517,22 @@ def display_packet():
             else:
                 tv_header = tv_header.replace('<COMMAND>', 'ILLEGAL OA COMMAND')
         elif spp_packet[0] == 0x08:
-            valid_packet = True
             tv_header = tv_header.replace('<SENDER>', 'spacecraft')    
             tv_header = tv_header.replace('<PACKET_TYPE>', 'TM')
             tv_spp = tv_spp.replace('<SENDER>', 'spacecraft')    
             tv_spp = tv_spp.replace('<PACKET_TYPE>', 'TM')
         elif spp_packet[0] == 0x18:
-            valid_packet = True
             tv_header = tv_header.replace('<SENDER>', 'ground')    
             tv_header = tv_header.replace('<PACKET_TYPE>', 'TC')
             tv_spp = tv_spp.replace('<SENDER>', 'ground')    
             tv_spp = tv_spp.replace('<PACKET_TYPE>', 'TC')
         else:
-            valid_packet = False
             tv_header = tv_header.replace('<SENDER>', 'spacecraft')    
             tv_header = tv_header.replace('<PACKET_TYPE>', 'UNKNOWN')
         
         textview_buffer.insert(textview_buffer.get_end_iter(), tv_header)
         
-        if valid_packet:
+        if is_spp_packet:
             tv_spp = tv_spp.replace('<GPS_WEEK>', "{:d}".format(gps_week))
             tv_spp = tv_spp.replace('<GPS_TIME>', "{:14.7f}".format(gps_sow))
             tv_spp = tv_spp.replace('<SEQUENCE_NUMBER>', 
@@ -627,18 +616,19 @@ def open_usrp_device():
 Transmit and receive packets
 """
 
-def transmit_packet(tc_packet, ax25_header, expect_ack, oa_packet):
+def transmit_packet(tc_packet, ax25_header, expect_ack, is_oa_packet):
     global use_serial
     global ground_sequence_number
     global last_tc_packet
     global display_queue
-    ax25_packet = ax25_wrap(tc_packet, ax25_header)
+    ax25_packet = ax25_wrap('TC', tc_packet, ax25_header)
     if use_serial:
-        transmit_serial(ax25_packet)
+        lithium_packet = lithium_wrap(ax25_packet)
+        transmit_serial(lithium_packet)
     else:
         kiss_packet = kiss_wrap(ax25_packet)
         transmit_usrp(kiss_packet)
-    if not oa_packet:
+    if not is_oa_packet:
         last_sn = ground_sequence_number
         ground_sequence_number += 1
         if ground_sequence_number > 65535:
@@ -648,9 +638,8 @@ def transmit_packet(tc_packet, ax25_header, expect_ack, oa_packet):
     display_queue.put(ax25_packet)
 
 
-def transmit_serial(tc_packet):
+def transmit_serial(lithium_packet):
     global serial_obj
-    lithium_packet = lithium_wrap(tc_packet)
     serial_obj.write(lithium_packet)
 
 
@@ -794,12 +783,13 @@ def main():
                         0x08 : 'READ_MEM',
                         0x07 : 'WRITE_MEM',
                         0x0B : 'SET_COMMS',
-                        0x0C : 'GET_COMMS'
-                        }
+                        0x0C : 'GET_COMMS',
+                        0x0A : 'SET_MODE',
+                        0x0D : 'GET_MODE'
+                       }
     COMMAND_CODES = {}
     for code, cmd in COMMAND_NAMES.items():
         COMMAND_CODES.update({cmd : code})
-    use_serial = False
     serial_device_name = 'pty_libertas'
     buffer_saved = False
     filedialog_save = False
@@ -829,13 +819,20 @@ def main():
     last_tc_packet = {}
     baudrates = [9600, 19200, 38400, 76800, 115200]
     
-    key_fp = open('./libertas_hmac_secret_keys.json', "r")
-    json_return = json.load(key_fp)
-    key_fp.close()
-    spacecraft_key = json_return['libertas_key'].encode()
-    ground_station_key = json_return['ground_station_key'].encode()
-    oa_key = json_return['oa_key'].encode()
-    
+    config = configparser.ConfigParser()
+    config.read(['ground.ini'])
+    debug = config['general'].getboolean('debug')
+    use_serial = config['comms'].getboolean('use_serial')
+    spacecraft_key = config['comms']['spacecraft_key'].encode()
+    ground_station_key = config['comms']['ground_station_key'].encode()
+    oa_key = config['comms']['oa_key'].encode()
+
+    if debug:
+        logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
+    else:
+        logging.basicConfig(filename='ground.log', level=logging.INFO, format='%(asctime)s %(message)s')
+    logging.info('%s %s: Run started', program_name, program_version)
+
     ax25_header = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
     
     if use_serial:
