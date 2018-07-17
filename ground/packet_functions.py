@@ -28,7 +28,23 @@ import time
 import hashlib
 import hmac
 from ground.gpstime import gpsFromUTC
-import hexdump
+
+
+def to_bigendian(input_integer, num_bytes):
+    output_bigendian = array.array('B', [])
+    if num_bytes == 4:
+        output_bigendian.append((input_integer & 0xFF000000) >> 24)
+        output_bigendian.append((input_integer & 0x00FF0000) >> 16)
+    output_bigendian.append((input_integer & 0xFF00) >> 8)
+    output_bigendian.append((input_integer & 0x00FF))
+    return(output_bigendian)
+
+
+def from_bigendian(input_bigendian, num_bytes):
+    output_integer = 0
+    for i in range(num_bytes):
+        output_integer = output_integer + (input_bigendian[i] << ((num_bytes - i - 1) * 8))
+    return(output_integer)
 
 
 def gps_time():
@@ -42,17 +58,42 @@ def hmac_sign(packet, key):
     return(digest)
     
     
+def receive_packet(my_packet_type, rx_obj, use_serial, q_receive_packet, q_display_packet):
+    while True:
+        if use_serial:
+            serial_buffer = rx_obj.read(8)
+            rcv_packet = array.array('B', [])
+            for s in serial_buffer:
+                rcv_packet.append(s)
+            serial_buffer = rx_obj.read(rcv_packet[5] + 2)
+            for s in serial_buffer:
+                rcv_packet.append(s)
+        else:
+            rcv_string = rx_obj.recv(1024)
+            rcv_packet = array.array('B', [])
+            for c in rcv_string:
+                rcv_packet.append(c)
+        if len(rcv_packet) >= 20:
+            if use_serial:
+                ax25_packet = lithium_unwrap(rcv_packet)
+            else:
+                ax25_packet = kiss_unwrap(rcv_packet)
+            if ax25_packet[16] != my_packet_type:
+                q_receive_packet.put(ax25_packet)
+                q_display_packet.put(ax25_packet)
+
+
 def is_valid_packet(packet_type, ax25_packet, spp_header_len, oa_key):
-    is_oa_packet = False
     is_spp_packet = False
-    if len(ax25_packet) == 33:
-        is_oa_packet = True
-        for idx, c in enumerate(oa_key):
-            if c != ax25_packet[(idx + 16)]:
-                is_oa_packet = False
+    is_oa_packet = True
+    for idx, c in enumerate(oa_key):
+        if c != ax25_packet[(idx + 16)]:
+            is_oa_packet = False
+    if (ax25_packet[32] < 0x30) or (ax25_packet[32] > 0x34):
+        is_oa_packet = False
     if not is_oa_packet:
         is_spp_packet = True
-        packet_min_len = 65
+        packet_min_len = 64
         if len(ax25_packet) < packet_min_len:
             is_spp_packet = False
         if (ax25_packet[14] != 0x03) or (ax25_packet[15] != 0xF0):
@@ -80,8 +121,7 @@ def spp_wrap(packet_type, data, spp_header_len, sequence_number, key):
         packet = array.array('B', [0x18, 0x00, 0x00])
     gps_tm = gps_time()
     packet.extend(spp_time_encode(gps_tm[0], gps_tm[1]))
-    packet.append((sequence_number & 0xFF00) >> 8)
-    packet.append(sequence_number & 0x00FF)
+    packet.extend(to_bigendian(sequence_number, 2))
     for d in data:
         packet.append(d)
     hmac_scope = packet[(spp_header_len - 2):]
@@ -103,25 +143,16 @@ def spp_time_encode(gps_week, gps_sow):
     temp_sow = "{:14.7f}".format(gps_sow).split('.')
     gps_sow_int = int(temp_sow[0])
     gps_sow_fract = int(temp_sow[1])
-    spp_time_array.append((gps_week & 0xFF00) >> 8)
-    spp_time_array.append(gps_week & 0x00FF)
-    spp_time_array.append((gps_sow_int & 0xFF000000) >> 24)
-    spp_time_array.append((gps_sow_int & 0x00FF0000) >> 16)
-    spp_time_array.append((gps_sow_int & 0x0000FF00) >> 8)
-    spp_time_array.append(gps_sow_int & 0x000000FF)
-    spp_time_array.append((gps_sow_fract & 0xFF000000) >> 24)
-    spp_time_array.append((gps_sow_fract & 0x00FF0000) >> 16)
-    spp_time_array.append((gps_sow_fract & 0x0000FF00) >> 8)
-    spp_time_array.append(gps_sow_fract & 0x000000FF)
+    spp_time_array.extend(to_bigendian(gps_week, 2))
+    spp_time_array.extend(to_bigendian(gps_sow_int, 4))
+    spp_time_array.extend(to_bigendian(gps_sow_fract, 4))
     return(spp_time_array)
     
 
 def spp_time_decode(spp_time_array):
-    gps_week = (spp_time_array[0] << 8) + spp_time_array[1]
-    gps_sow_int = ((spp_time_array[2] << 24) + (spp_time_array[3] << 16) + 
-                    (spp_time_array[4] << 8) + (spp_time_array[5]))
-    gps_sow_fract = ((spp_time_array[6] << 24) + (spp_time_array[7] << 16) + 
-                    (spp_time_array[8] << 8) + (spp_time_array[9]))
+    gps_week = from_bigendian(spp_time_array[0:2], 2)
+    gps_sow_int = from_bigendian(spp_time_array[2:6], 4)
+    gps_sow_fract = from_bigendian(spp_time_array[6:10], 4)
     gps_sow = float("{:06d}".format(gps_sow_int) + '.' + "{:07d}".format(gps_sow_fract))
     return(gps_week, gps_sow)
 
@@ -169,7 +200,7 @@ def ax25_wrap(packet_type, packet, ax25_header):
 
 
 def ax25_unwrap(ax25_packet):
-    packet_data_length = (ax25_packet[17] << 8) + ax25_packet[18]
+    packet_data_length = from_bigendian(ax25_packet[17:19], 2)
     padding = len(ax25_packet) - (16 + 3 + (packet_data_length + 1))
     if padding > 0:
         ax25_packet = ax25_packet[:(-padding)]
@@ -227,5 +258,5 @@ def validate_packet(packet_type, packet, spp_header_len, sequence_number, key):
     validation_mask = 0
     for idx, v in enumerate(ground_digest):
         if v != validation_digest[idx]:
-            validation_mask = 1
+            validation_mask = validation_mask | 0b00000001
     return(validation_mask)
