@@ -83,7 +83,7 @@ def receive_packet(my_packet_type, rx_obj, use_serial, q_receive_packet, q_displ
                 q_display_packet.put(ax25_packet)
 
 
-def is_valid_packet(packet_type, ax25_packet, spp_header_len, oa_key):
+def is_libertas_packet(packet_type, ax25_packet, spp_header_len, oa_key):
     is_spp_packet = False
     is_oa_packet = True
     for idx, c in enumerate(oa_key):

@@ -32,7 +32,7 @@ from gi.repository import GObject
 import array
 import time
 from ground.packet_functions import receive_packet, to_bigendian, from_bigendian
-from ground.packet_functions import is_valid_packet, init_ax25_header, spp_wrap, spp_unwrap, lithium_wrap, lithium_unwrap
+from ground.packet_functions import is_libertas_packet, init_ax25_header, spp_wrap, spp_unwrap, lithium_wrap, lithium_unwrap
 from ground.packet_functions import ax25_wrap, ax25_unwrap, kiss_wrap, kiss_unwrap, ax25_callsign, validate_packet
 import serial
 import json
@@ -40,6 +40,7 @@ import threading
 import pprint
 import socket
 import multiprocessing as mp
+import hexdump
 
 program_name = 'UVa Libertas Ground Station'
 program_version = 'V1.1'
@@ -283,9 +284,8 @@ def on_command(button_label):
 
     elif button_label == 'SET_COMMS':
         title = '"SET_COMMS" Arguments'
-        labels = ['TM Window', 'XMIT Timeout',
-                  'ACK Timeout', 'Sequence Window', 'Spacecraft Sequence', 'GS Sequence']
-        defaults = ['0x01', '0x04', '0x0A', '0x02', '0x0000', '0x0000']
+        labels = ['TM Window', 'XMIT Timeout','ACK Timeout', 'Sequence Window', 'Turnaround', 'N/A']
+        defaults = ['0x01', '0x04', '0x0A', '0x02', '0x012C', '0x0000']
         tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit '
                     + 'before waiting for an ACK.  Default: 0x01.',
                     '(8-bit) Number of unacknowledged transmit windows before the spacecraft '
@@ -294,16 +294,15 @@ def on_command(button_label):
                     + 'before retransmitting the last window.  Default: 0x0A.',
                     '(8-bit) Maximum allowable difference between the expected and received '
                     + 'Sequence Number.  Default: 0x02.',
-                    '(16-bit) The next packet from the spacecraft should have this Sequence Number.',
-                    '(16-bit) The spacecraft should expect the next packet from the ground station '
-                    + 'to have this Sequence Number.']
+                    '(16-bit) Minimum delay between transmit and receive packets.',
+                    'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             tc_data = array.array('B', [0x0B])
             for a in args[0:4]:
                 tc_data.append(a & 0x00FF)
-            for a in args[4:]:
-                tc_data.extend(to_bigendian(a, 2))
+            tc_data.extend(to_bigendian(args[4], 2))
+            tc_data.extend([0x00, 0x00, 0x00, 0x00])
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
             transmit_packet(tc_packet, ax25_header, True, False)
 
@@ -376,6 +375,7 @@ def process_received():
     global transmit_timeout_count
     global ack_timeout
     global sequence_number_window
+    global turnaround
 
     while True:
         ax25_packet = q_receive_packet.get()
@@ -412,10 +412,11 @@ def process_received():
             send_ack(spacecraft_sequence_numbers, spp_header_len)
             spacecraft_sequence_numbers = []
         elif tm_command == COMMAND_CODES['GET_COMMS']:
-            tm_packet_window = (tm_data[1])
-            transmit_timeout_count = (tm_data[2])
-            ack_timeout = (tm_data[3])
-            sequence_number_window = (tm_data[4])
+            tm_packet_window = tm_data[1]
+            transmit_timeout_count = tm_data[2]
+            ack_timeout = tm_data[3]
+            sequence_number_window = tm_data[4]
+            turnaround = from_bigendian(tm_data[9:11], 2)
             spacecraft_sequence_numbers.append(spacecraft_sequence_number)
             send_ack(spacecraft_sequence_numbers, spp_header_len)
             spacecraft_sequence_numbers = []
@@ -426,7 +427,6 @@ def process_received():
             spacecraft_sequence_numbers = []
         else:
             pass
-        print('len(spacecraft_sequence_numbers)', len(spacecraft_sequence_numbers))
 
 
 """
@@ -507,7 +507,7 @@ def display_packet():
     global COMMAND_NAMES
     if not q_display_packet.empty():
         ax25_packet = q_display_packet.get()
-        is_spp_packet, is_oa_packet = is_valid_packet('TM', ax25_packet, spp_header_len, oa_key)
+        is_spp_packet, is_oa_packet = is_libertas_packet('TM', ax25_packet, spp_header_len, oa_key)
         spp_packet = ax25_unwrap(ax25_packet)
         spp_data, gps_week, gps_sow = spp_unwrap(spp_packet, spp_header_len)
         if first_packet:
@@ -672,6 +672,7 @@ def transmit_packet(tc_packet, ax25_header, expect_ack, is_oa_packet):
     global ground_sequence_number
     global last_tc_packet
     global q_display_packet
+    time.sleep(turnaround)
     ax25_packet = ax25_wrap('TC', tc_packet, ax25_header)
     if use_serial:
         lithium_packet = lithium_wrap(ax25_packet)
@@ -773,6 +774,7 @@ def main():
     global dst_callsign
     global src_callsign
     global ax25_header
+    global turnaround
 
     COMMAND_NAMES = {
         0x05: 'ACK',
@@ -831,6 +833,7 @@ def main():
     config.read(['ground.ini'])
     debug = config['general'].getboolean('debug')
     use_serial = config['comms'].getboolean('use_serial')
+    turnaround = float(config['comms']['turnaround']) / 1000.0
     spacecraft_key = config['comms']['spacecraft_key'].encode()
     ground_station_key = config['comms']['ground_station_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
