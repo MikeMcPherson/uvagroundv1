@@ -28,6 +28,7 @@ import time
 import hashlib
 import hmac
 from ground.gpstime import gpsFromUTC
+import hexdump
 
 
 def to_bigendian(input_integer, num_bytes):

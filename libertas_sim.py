@@ -44,7 +44,7 @@ Transmit and receive packets
 
 
 def transmit_packet(packet, ax25_header, sequence_number, tx_obj, use_serial, turnaround):
-    time.sleep(turnaround)
+    time.sleep(float(turnaround) / 1000.0)
     ax25_packet = ax25_wrap('TM', packet, ax25_header)
     if use_serial:
         lithium_packet = lithium_wrap(ax25_packet)
@@ -66,7 +66,7 @@ def send_ack(ground_sequence_numbers, sequence_number, ax25_header, spp_header_l
 
 
 def send_nak(ground_sequence_numbers, sequence_number, ax25_header, spp_header_len, key, tx_obj, use_serial, turnaround):
-    data = array.array('B', [0x06, 0x01])
+    data = array.array('B', [0x06])
     tm_packet = spp_wrap('TM', data, spp_header_len, sequence_number, key)
     sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial, turnaround)
     return (tm_packet, sequence_number)
@@ -155,9 +155,11 @@ def main():
     cf = currentframe()
     config = configparser.ConfigParser()
     config.read(['ground.ini'])
-    debug = config['general'].getboolean('debug')
+    debug = config['libertas_sim'].getboolean('debug')
+    program_name = config['libertas_sim']['program_name']
+    program_version = config['libertas_sim']['program_version']
     use_serial = config['comms'].getboolean('use_serial')
-    turnaround = float(config['comms']['turnaround']) / 1000.0
+    turnaround = int(config['comms']['turnaround'])
     spacecraft_key = config['comms']['spacecraft_key'].encode()
     ground_station_key = config['comms']['ground_station_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
@@ -343,10 +345,10 @@ def main():
             elif tc_command == COMMAND_GET_COMMS:
                 print('Received GET_COMMS')
                 tm_data = array.array('B', [0x0C])
-                tm_data.append(tm_packet_window)
-                tm_data.append(transmit_timeout_count)
-                tm_data.append(ack_timeout)
-                tm_data.append(sequence_number_window)
+                tm_data.append(tm_packet_window & 0xFF)
+                tm_data.append(transmit_timeout_count & 0xFF)
+                tm_data.append(ack_timeout & 0xFF)
+                tm_data.append(sequence_number_window & 0xFF)
                 tm_data.extend(to_bigendian((spacecraft_sequence_number + 1), 2))
                 tm_data.extend(to_bigendian(expected_ground_sequence_number, 2))
                 tm_data.extend(to_bigendian(turnaround, 2))
@@ -367,7 +369,7 @@ def main():
             elif tc_command == COMMAND_GET_MODE:
                 print('Received GET_MODE')
                 tm_data = array.array('B', [0x0D])
-                tm_data.append(spacecraft_mode)
+                tm_data.append(spacecraft_mode & 0xFF)
                 tm_packet = spp_wrap('TM', tm_data, spp_header_len, spacecraft_sequence_number, spacecraft_key)
                 last_sn = spacecraft_sequence_number
                 spacecraft_sequence_number = transmit_packet(tm_packet, ax25_header, spacecraft_sequence_number,

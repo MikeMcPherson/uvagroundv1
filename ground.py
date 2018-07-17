@@ -42,9 +42,6 @@ import socket
 import multiprocessing as mp
 import hexdump
 
-program_name = 'UVa Libertas Ground Station'
-program_version = 'V1.1'
-
 """
 GUI Handlers
 """
@@ -301,8 +298,8 @@ def on_command(button_label):
             tc_data = array.array('B', [0x0B])
             for a in args[0:4]:
                 tc_data.append(a & 0x00FF)
-            tc_data.extend(to_bigendian(args[4], 2))
             tc_data.extend([0x00, 0x00, 0x00, 0x00])
+            tc_data.extend(to_bigendian(args[4], 2))
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
             transmit_packet(tc_packet, ax25_header, True, False)
 
@@ -421,7 +418,7 @@ def process_received():
             send_ack(spacecraft_sequence_numbers, spp_header_len)
             spacecraft_sequence_numbers = []
         elif tm_command == COMMAND_CODES['GET_MODE']:
-            spacecraft_mode = (tm_data[2])
+            spacecraft_mode = (tm_data[1])
             spacecraft_sequence_numbers.append(spacecraft_sequence_number)
             send_ack(spacecraft_sequence_numbers, spp_header_len)
             spacecraft_sequence_numbers = []
@@ -672,7 +669,7 @@ def transmit_packet(tc_packet, ax25_header, expect_ack, is_oa_packet):
     global ground_sequence_number
     global last_tc_packet
     global q_display_packet
-    time.sleep(turnaround)
+    time.sleep(float(turnaround) / 1000.0)
     ax25_packet = ax25_wrap('TC', tc_packet, ax25_header)
     if use_serial:
         lithium_packet = lithium_wrap(ax25_packet)
@@ -832,6 +829,8 @@ def main():
     config = configparser.ConfigParser()
     config.read(['ground.ini'])
     debug = config['general'].getboolean('debug')
+    program_name = config['general']['program_name']
+    program_version = config['general']['program_version']
     use_serial = config['comms'].getboolean('use_serial')
     turnaround = float(config['comms']['turnaround']) / 1000.0
     spacecraft_key = config['comms']['spacecraft_key'].encode()
@@ -889,6 +888,8 @@ def main():
     combobox1 = builder.get_object("combobox1")
     combobox1.set_active(0)
 
+    appwindow_title = ' '.join([program_name, program_version])
+    appwindow.set_title(appwindow_title)
     appwindow.show_all()
 
     p_receive_packet = mp.Process(target=receive_packet, args=(my_packet_type, rx_obj, use_serial,
