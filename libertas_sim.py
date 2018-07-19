@@ -81,6 +81,9 @@ def transmit_health_packet(q_health_payloads, health_payload_length, health_payl
         health_payload = q_health_payloads.get()
         for h in health_payload:
             data.append(h)
+    for i in range(payloads_this_packet, 4):
+        print(i)
+        data.extend([0x00] * health_payload_length)
     tm_packet = spp_wrap('TM', data, spp_header_len, sequence_number, key)
     sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial, turnaround)
     health_payloads_pending = max((health_payloads_pending - payloads_this_packet), 0)
@@ -96,6 +99,9 @@ def transmit_science_packet(q_science_payloads, science_payload_length, science_
         science_payload = q_science_payloads.get()
         for s in science_payload:
             data.append(s)
+    for i in range(payloads_this_packet, 2):
+        print(i)
+        data.extend([0x00] * science_payload_length)
     tm_packet = spp_wrap('TM', data, spp_header_len, sequence_number, key)
     sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial, turnaround)
     science_payloads_pending = max((science_payloads_pending - payloads_this_packet), 0)

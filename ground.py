@@ -604,37 +604,41 @@ def display_packet():
 
 def payload_decode(spp_data):
     global COMMAND_CODES
+    global health_payloads_per_packet
+    global science_payloads_per_packet
     command = spp_data[0]
     if command == COMMAND_CODES['XMIT_SCIENCE']:
-        packet_string = ('    "latitude":"<LATITUDE>",\n' +
-                         '    "longitude":"<LONGITUDE>",\n' +
-                         '    "altitude":"<ALTITUDE>",\n' +
-                         '    "fix_quality":"<FIX_QUALITY>",\n' +
-                         '    "satellites_tracked":"<SATELLITES_TRACKED>",\n' +
-                         '    "hdop":"<HDOP>",\n' +
-                         '    "gps_time":"<GPS_TIME>",\n' +
-                         '    "gps_week":"<GPS_WEEK>",\n' +
-                         '    "x_pos":"<X_POS>",\n' +
-                         '    "y_pos":"<Y_POS>",\n' +
-                         '    "z_pos":"<Z_POS>",\n' +
-                         '    "x_pos":"<X_POS>",\n' +
-                         '    "y_pos":"<Y_POS>",\n' +
-                         '    "z_pos":"<Z_POS>",\n' +
-                         '    "pdop":"<PDOP>",\n' +
-                         '    "satellites_pvt":"<SATELLITES_PVT>",\n' +
-                         '    "mx":"<MX>",\n' +
-                         '    "my":"<MY>",\n' +
-                         '    "mz":"<MZ>",\n' +
-                         '    "gx":"<GX>",\n' +
-                         '    "gy":"<GY>",\n' +
-                         '    "gz":"<GZ>",\n' +
-                         '    "sun_sensor_vi":"<SUN_SENSOR_VI>",\n' +
-                         '    "sun_sensor_i":"<SUN_SENSOR_I>",\n' +
-                         '    "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
-                         '    "sun_sensor_iii":"<SUN_SENSOR_III>",\n' +
-                         '    "sun_sensor_iv":"<SUN_SENSOR_IV>",\n' +
-                         '    "sun_sensor_v":"<SUN_SENSOR_V>",\n'
-                         )
+        packet_string = ''
+        for i in range(spp_data[1]):
+            packet_string = packet_string + ('    "latitude":"<LATITUDE>",\n' +
+                             '    "longitude":"<LONGITUDE>",\n' +
+                             '    "altitude":"<ALTITUDE>",\n' +
+                             '    "fix_quality":"<FIX_QUALITY>",\n' +
+                             '    "satellites_tracked":"<SATELLITES_TRACKED>",\n' +
+                             '    "hdop":"<HDOP>",\n' +
+                             '    "gps_time":"<GPS_TIME>",\n' +
+                             '    "gps_week":"<GPS_WEEK>",\n' +
+                             '    "x_pos":"<X_POS>",\n' +
+                             '    "y_pos":"<Y_POS>",\n' +
+                             '    "z_pos":"<Z_POS>",\n' +
+                             '    "x_pos":"<X_POS>",\n' +
+                             '    "y_pos":"<Y_POS>",\n' +
+                             '    "z_pos":"<Z_POS>",\n' +
+                             '    "pdop":"<PDOP>",\n' +
+                             '    "satellites_pvt":"<SATELLITES_PVT>",\n' +
+                             '    "mx":"<MX>",\n' +
+                             '    "my":"<MY>",\n' +
+                             '    "mz":"<MZ>",\n' +
+                             '    "gx":"<GX>",\n' +
+                             '    "gy":"<GY>",\n' +
+                             '    "gz":"<GZ>",\n' +
+                             '    "sun_sensor_vi":"<SUN_SENSOR_VI>",\n' +
+                             '    "sun_sensor_i":"<SUN_SENSOR_I>",\n' +
+                             '    "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
+                             '    "sun_sensor_iii":"<SUN_SENSOR_III>",\n' +
+                             '    "sun_sensor_iv":"<SUN_SENSOR_IV>",\n' +
+                             '    "sun_sensor_v":"<SUN_SENSOR_V>",\n'
+                             )
     else:
         packet_string = ''
     return (packet_string)
