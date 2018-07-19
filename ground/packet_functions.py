@@ -49,6 +49,15 @@ def from_bigendian(input_bigendian, num_bytes):
     return(output_integer)
 
 
+def to_fake_float(input_float, whole_bytes, fract_bytes):
+    return
+
+
+def from_fake_float(whole_part, fract_part):
+    return_float = float("{:d}".format(whole_part) + '.' + "{:07d}".format(fract_part))
+    return(return_float)
+
+
 def gps_time():
     time_utc = time.gmtime()
     gps_tm = gpsFromUTC(time_utc[0], time_utc[1], time_utc[2], time_utc[3], time_utc[4], time_utc[5])
@@ -57,7 +66,7 @@ def gps_time():
 
 def hmac_sign(packet, key):
     # digest = hmac.new(key, msg=packet, digestmod=hashlib.sha256).digest()
-    digest = chaskey(key, 16, packet).digest()
+    digest = chaskey(key[:16], 16, packet).digest()
     digest = digest + (b'\x00' * 16)
     return(digest)
     

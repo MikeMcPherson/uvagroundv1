@@ -2,6 +2,6 @@
 debug = False
 [comms]
 use_serial = True
-spacecraft_key = your_spacecraft_key
-ground_station_key = your_ground_station_key
-oa_key = your_lithium_oa_key
+spacecraft_key = your_spacecraft_key ; 16 byte
+ground_station_key = your_ground_station_key ; 16 byte
+oa_key = your_lithium_oa_key ; 16 byte

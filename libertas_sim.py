@@ -28,7 +28,7 @@ import configparser
 import logging
 import array
 import time
-from ground.packet_functions import receive_packet, to_bigendian, from_bigendian
+from ground.packet_functions import receive_packet, to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import is_libertas_packet, init_ax25_header, spp_wrap, spp_unwrap
 from ground.packet_functions import lithium_wrap, lithium_unwrap
 from ground.packet_functions import ax25_wrap, ax25_unwrap, kiss_wrap, kiss_unwrap, ax25_callsign, validate_packet
@@ -82,7 +82,6 @@ def transmit_health_packet(q_health_payloads, health_payload_length, health_payl
         for h in health_payload:
             data.append(h)
     for i in range(payloads_this_packet, 4):
-        print(i)
         data.extend([0x00] * health_payload_length)
     tm_packet = spp_wrap('TM', data, spp_header_len, sequence_number, key)
     sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial, turnaround)
@@ -100,7 +99,6 @@ def transmit_science_packet(q_science_payloads, science_payload_length, science_
         for s in science_payload:
             data.append(s)
     for i in range(payloads_this_packet, 2):
-        print(i)
         data.extend([0x00] * science_payload_length)
     tm_packet = spp_wrap('TM', data, spp_header_len, sequence_number, key)
     sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial, turnaround)
@@ -114,6 +112,7 @@ Main
 
 
 def main():
+
     """
     Commands
     """

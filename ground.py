@@ -26,13 +26,15 @@ __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 import configparser
 import logging
 import gi
+
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from gi.repository import GObject
 import array
 import time
-from ground.packet_functions import receive_packet, to_bigendian, from_bigendian
-from ground.packet_functions import is_libertas_packet, init_ax25_header, spp_wrap, spp_unwrap, lithium_wrap, lithium_unwrap
+from ground.packet_functions import receive_packet, to_bigendian, from_bigendian, to_fake_float, from_fake_float
+from ground.packet_functions import is_libertas_packet, init_ax25_header, spp_wrap, spp_unwrap, lithium_wrap, \
+    lithium_unwrap
 from ground.packet_functions import ax25_wrap, ax25_unwrap, kiss_wrap, kiss_unwrap, ax25_callsign, validate_packet
 import serial
 import json
@@ -281,7 +283,7 @@ def on_command(button_label):
 
     elif button_label == 'SET_COMMS':
         title = '"SET_COMMS" Arguments'
-        labels = ['TM Window', 'XMIT Timeout','ACK Timeout', 'Sequence Window', 'Turnaround', 'N/A']
+        labels = ['TM Window', 'XMIT Timeout', 'ACK Timeout', 'Sequence Window', 'Turnaround', 'N/A']
         defaults = ['0x01', '0x04', '0x0A', '0x02', '0x012C', '0x0000']
         tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit '
                     + 'before waiting for an ACK.  Default: 0x01.',
@@ -489,6 +491,20 @@ def write_buffer(buffer_filename):
     fobj.close()
 
 
+def hex_tabulate(buffer, values_per_row):
+    buffer_len = len(buffer)
+    buffer_string = ''
+    for i in range(0, buffer_len, values_per_row):
+        buffer_list = []
+        for value in buffer[i:(i + values_per_row)]:
+            buffer_list.append("\"0x{:02X}\"".format(value))
+        buffer_string = buffer_string + '        ' + ", ".join(map(str, buffer_list))
+        if (buffer_len - i) > values_per_row:
+            buffer_string = buffer_string + ',\n'
+        else:
+            buffer_string = buffer_string + '\n'
+    return(buffer_string)
+
 """
 Display packet in scrolling window
 """
@@ -502,7 +518,14 @@ def display_packet():
     global first_packet
     global q_display_packet
     global COMMAND_NAMES
+    global health_payload_length
+    global science_payload_length
+    global spacecraft_key
+    global ground_station_key
     if not q_display_packet.empty():
+        values_per_row = 8
+        packet_type = 'UNKNOWN'
+        sdlsp_key = ''
         ax25_packet = q_display_packet.get()
         is_spp_packet, is_oa_packet = is_libertas_packet('TM', ax25_packet, spp_header_len, oa_key)
         spp_packet = ax25_unwrap(ax25_packet)
@@ -514,21 +537,22 @@ def display_packet():
             textview_buffer.insert(textview_buffer.get_end_iter(), ",\n")
         textview_buffer.insert(textview_buffer.get_end_iter(), "{\n")
 
-        tv_header = ('    "sender":"<SENDER>",\n' +
-                     '    "packet_type":"<PACKET_TYPE>",\n')
+        tv_header = ('    "sender":"<SENDER>", ' +
+                     '"packet_type":"<PACKET_TYPE>",\n')
 
-        tv_spp = ('    "gps_week":"<GPS_WEEK>",\n' +
-                  '    "gps_time":"<GPS_TIME>",\n' +
-                  '    "sequence_number":"<SEQUENCE_NUMBER>",\n' +
-                  '    "command":"<COMMAND>",\n' +
-                  '    "<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
-                  '    "<PACKET_TYPE>_data":[<SPP_DATA>],\n' +
-                  '    "hmac_digest":[<HMAC_DIGEST>],\n')
+        tv_spp = ('    "gps_week":"<GPS_WEEK>", ' +
+                  '"gps_time":"<GPS_TIME>", ' +
+                  '"sequence_number":"<SEQUENCE_NUMBER>",\n' +
+                  '    "command":"<COMMAND>", ' +
+                  '"<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
+                  '    "<PACKET_TYPE>_data":[\n<SPP_DATA>    ],\n' +
+                  '    "mac_valid":"<MAC_VALID>",\n' +
+                  '    "mac_digest":[\n<MAC_DIGEST>    ],\n')
 
-        tv_ax25 = ('    "ax25_destination":"<AX25_DESTINATION>",\n' +
-                   '    "ax25_source":"<AX25_SOURCE>",\n' +
-                   '    "ax25_packet_length":"<AX25_PACKET_LENGTH>",\n' +
-                   '    "ax25_packet":[<AX25_PACKET>]\n')
+        tv_ax25 = ('    "ax25_destination":"<AX25_DESTINATION>", ' +
+                   '"ax25_source":"<AX25_SOURCE>", ' +
+                   '"ax25_packet_length":"<AX25_PACKET_LENGTH>",\n' +
+                   '    "ax25_packet":[\n<AX25_PACKET>    ]\n')
 
         if is_oa_packet:
             tv_header = tv_header.replace('<SENDER>', 'ground')
@@ -542,22 +566,31 @@ def display_packet():
             else:
                 tv_header = tv_header.replace('<COMMAND>', 'ILLEGAL OA COMMAND')
         elif spp_packet[0] == 0x08:
+            packet_type = 'TM'
             tv_header = tv_header.replace('<SENDER>', 'spacecraft')
-            tv_header = tv_header.replace('<PACKET_TYPE>', 'TM')
+            tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
             tv_spp = tv_spp.replace('<SENDER>', 'spacecraft')
-            tv_spp = tv_spp.replace('<PACKET_TYPE>', 'TM')
+            tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
+            sdlsp_key = spacecraft_key
         elif spp_packet[0] == 0x18:
+            packet_type = 'TC'
             tv_header = tv_header.replace('<SENDER>', 'ground')
-            tv_header = tv_header.replace('<PACKET_TYPE>', 'TC')
+            tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
             tv_spp = tv_spp.replace('<SENDER>', 'ground')
-            tv_spp = tv_spp.replace('<PACKET_TYPE>', 'TC')
+            tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
+            sdlsp_key = ground_station_key
         else:
+            packet_type = 'UNKNOWN'
             tv_header = tv_header.replace('<SENDER>', 'spacecraft')
-            tv_header = tv_header.replace('<PACKET_TYPE>', 'UNKNOWN')
+            tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
+            sdlsp_key = ''
 
         textview_buffer.insert(textview_buffer.get_end_iter(), tv_header)
 
         if is_spp_packet:
+            packet_sequence_number = from_bigendian(spp_packet[13:15], 2)
+            validation_mask = validate_packet(packet_type, spp_packet, spp_header_len,
+                                              packet_sequence_number, sdlsp_key)
             tv_spp = tv_spp.replace('<GPS_WEEK>', "{:d}".format(gps_week))
             tv_spp = tv_spp.replace('<GPS_TIME>', "{:14.7f}".format(gps_sow))
             tv_spp = tv_spp.replace('<SEQUENCE_NUMBER>',
@@ -566,32 +599,30 @@ def display_packet():
             tv_spp = tv_spp.replace('<COMMAND>', COMMAND_NAMES[spp_data[0]])
 
             tv_spp = tv_spp.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(spp_data)))
-            packet_list = []
-            for p in spp_data:
-                packet_list.append("\"0x{:02X}\"".format(p))
-            packet_string = ", ".join(map(str, packet_list))
+            packet_string = hex_tabulate(spp_data, values_per_row)
             tv_spp = tv_spp.replace('<SPP_DATA>', packet_string)
 
-            packet_list = []
-            for p in spp_packet[-32:]:
-                packet_list.append("\"0x{:02X}\"".format(p))
-            packet_string = ", ".join(map(str, packet_list))
-            tv_spp = tv_spp.replace('<HMAC_DIGEST>', packet_string)
+            if validation_mask == 0:
+                tv_spp = tv_spp.replace('<MAC_VALID>', 'True')
+            else:
+                tv_spp = tv_spp.replace('<MAC_VALID>', 'False')
+            packet_string = hex_tabulate(spp_packet[-32:], values_per_row)
+            tv_spp = tv_spp.replace('<MAC_DIGEST>', packet_string)
 
             textview_buffer.insert(textview_buffer.get_end_iter(), tv_spp)
 
-            if spp_packet[0] == 0x08:
-                packet_string = payload_decode(spp_data)
-                textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
+            if (spp_packet[0] == 0x08) and ((spp_data[0] == 0x02) or (spp_data[0] == 0x03)):
+                for n in range(spp_data[1]):
+                    payload_begin = 2 + (science_payload_length * n)
+                    payload_end = payload_begin + science_payload_length
+                    packet_string = payload_decode(spp_data[0], spp_data[payload_begin:payload_end], n)
+                    textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
 
         tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(ax25_packet[0:7]))
         tv_ax25 = tv_ax25.replace('<AX25_SOURCE>', ax25_callsign(ax25_packet[7:14]))
         tv_ax25 = tv_ax25.replace('<AX25_PACKET_LENGTH>', "{:d}".format(len(ax25_packet)))
 
-        packet_list = []
-        for p in ax25_packet:
-            packet_list.append("\"0x{:02X}\"".format(p))
-        packet_string = ", ".join(map(str, packet_list))
+        packet_string = hex_tabulate(ax25_packet, values_per_row)
         tv_ax25 = tv_ax25.replace('<AX25_PACKET>', packet_string)
 
         textview_buffer.insert(textview_buffer.get_end_iter(), tv_ax25)
@@ -602,46 +633,111 @@ def display_packet():
     return (True)
 
 
-def payload_decode(spp_data):
+def payload_decode(command, payload_data, payload_number):
     global COMMAND_CODES
-    global health_payloads_per_packet
-    global science_payloads_per_packet
-    command = spp_data[0]
+    science_payload_string = (
+            '    "payload<PAYLOAD_NUMBER>":[\n'
+            '        "payload_type":"SCIENCE",\n' +
+            '        "latitude":"<LATITUDE>",\n' +
+            '        "longitude":"<LONGITUDE>",\n' +
+            '        "altitude":"<ALTITUDE>",\n' +
+            '        "fix_quality":"<FIX_QUALITY>",\n' +
+            '        "satellites_tracked":"<SATELLITES_TRACKED>",\n' +
+            '        "hdop":"<HDOP>",\n' +
+            '        "gps_time":"<GPS_TIME>",\n' +
+            '        "gps_week":"<GPS_WEEK>",\n' +
+            '        "x_pos":"<X_POS>",\n' +
+            '        "y_pos":"<Y_POS>",\n' +
+            '        "z_pos":"<Z_POS>",\n' +
+            '        "x_vel":"<X_VEL>",\n' +
+            '        "y_vel":"<Y_VEL>",\n' +
+            '        "z_vel":"<Z_VEL>",\n' +
+            '        "pdop":"<PDOP>",\n' +
+            '        "satellites_pvt":"<SATELLITES_PVT>",\n' +
+            '        "mx":"<MX>",\n' +
+            '        "my":"<MY>",\n' +
+            '        "mz":"<MZ>",\n' +
+            '        "gx":"<GX>",\n' +
+            '        "gy":"<GY>",\n' +
+            '        "gz":"<GZ>",\n' +
+            '        "sun_sensor_vi":"<SUN_SENSOR_VI>",\n' +
+            '        "sun_sensor_i":"<SUN_SENSOR_I>",\n' +
+            '        "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
+            '        "sun_sensor_iii":"<SUN_SENSOR_III>",\n' +
+            '        "sun_sensor_iv":"<SUN_SENSOR_IV>",\n' +
+            '        "sun_sensor_v":"<SUN_SENSOR_V>",\n' +
+            '    "],"\n'
+    )
+    science_payload_fields = [
+            ['<LATITUDE>', 'LATLON'],
+            ['<LONGITUDE>', 'LATLON'],
+            ['<ALTITUDE>', 'UINT32'],
+            ['<FIX_QUALITY>', 'UINT8'],
+            ['<SATELLITES_TRACKED>', 'UINT8'],
+            ['<HDOP>', 'DOP'],
+            ['<GPS_TIME>', 'GPSTIME'],
+            ['<GPS_WEEK>', 'UINT16'],
+            ['<X_POS>', 'UINT32'],
+            ['<Y_POS>', 'UINT32'],
+            ['<Z_POS>', 'UINT32'],
+            ['<X_VEL>', 'UINT16'],
+            ['<Y_VEL>', 'UINT16'],
+            ['<Z_VEL>', 'UINT16'],
+            ['<PDOP>', 'DOP'],
+            ['<SATELLITES_PVT>', 'UINT8'],
+            ['<MX>', 'UINT16'],
+            ['<MY>', 'UINT16'],
+            ['<MZ>', 'UINT16'],
+            ['<GX>', 'UINT16'],
+            ['<GY>', 'UINT16'],
+            ['<GZ>', 'UINT16'],
+            ['<SUN_SENSOR_I>', 'UINT16'],
+            ['<SUN_SENSOR_II>', 'UINT16'],
+            ['<SUN_SENSOR_III>', 'UINT16'],
+            ['<SUN_SENSOR_IV>', 'UINT16'],
+            ['<SUN_SENSOR_V>', 'UINT16']
+        ]
     if command == COMMAND_CODES['XMIT_SCIENCE']:
-        packet_string = ''
-        for i in range(spp_data[1]):
-            packet_string = packet_string + ('    "latitude":"<LATITUDE>",\n' +
-                             '    "longitude":"<LONGITUDE>",\n' +
-                             '    "altitude":"<ALTITUDE>",\n' +
-                             '    "fix_quality":"<FIX_QUALITY>",\n' +
-                             '    "satellites_tracked":"<SATELLITES_TRACKED>",\n' +
-                             '    "hdop":"<HDOP>",\n' +
-                             '    "gps_time":"<GPS_TIME>",\n' +
-                             '    "gps_week":"<GPS_WEEK>",\n' +
-                             '    "x_pos":"<X_POS>",\n' +
-                             '    "y_pos":"<Y_POS>",\n' +
-                             '    "z_pos":"<Z_POS>",\n' +
-                             '    "x_pos":"<X_POS>",\n' +
-                             '    "y_pos":"<Y_POS>",\n' +
-                             '    "z_pos":"<Z_POS>",\n' +
-                             '    "pdop":"<PDOP>",\n' +
-                             '    "satellites_pvt":"<SATELLITES_PVT>",\n' +
-                             '    "mx":"<MX>",\n' +
-                             '    "my":"<MY>",\n' +
-                             '    "mz":"<MZ>",\n' +
-                             '    "gx":"<GX>",\n' +
-                             '    "gy":"<GY>",\n' +
-                             '    "gz":"<GZ>",\n' +
-                             '    "sun_sensor_vi":"<SUN_SENSOR_VI>",\n' +
-                             '    "sun_sensor_i":"<SUN_SENSOR_I>",\n' +
-                             '    "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
-                             '    "sun_sensor_iii":"<SUN_SENSOR_III>",\n' +
-                             '    "sun_sensor_iv":"<SUN_SENSOR_IV>",\n' +
-                             '    "sun_sensor_v":"<SUN_SENSOR_V>",\n'
-                             )
+        idx = 0
+        payload_string = science_payload_string
+        payload_string = payload_string.replace('<PAYLOAD_NUMBER>', "{:1d}".format(payload_number))
+        for field in science_payload_fields:
+            if field[1] == 'LATLON':
+                field_value = from_fake_float(from_bigendian(payload_data[idx:(idx + 2)], 2),
+                               from_bigendian(payload_data[(idx + 2):(idx + 6)], 4))
+                if (payload_data[(idx + 6)] == 'S') or (payload_data[(idx + 6)] == 'W'):
+                    field_value = -field_value
+                payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
+                idx = idx + 7
+            elif field[1] == 'DOP':
+                field_value = from_fake_float(payload_data[idx],
+                               from_bigendian(payload_data[(idx + 1):(idx + 5)], 4))
+                payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
+                idx = idx + 5
+            elif field[1] == 'GPSTIME':
+                field_value = from_fake_float(from_bigendian(payload_data[idx:(idx + 4)], 4),
+                               from_bigendian(payload_data[(idx + 4):(idx + 8)], 4))
+                payload_string = payload_string.replace(field[0], "{:14.7f}".format(field_value))
+                idx = idx + 8
+            elif field[1] == 'UINT32':
+                field_value = int(from_bigendian(payload_data[idx:(idx + 4)], 4))
+                payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+                idx = idx + 4
+            elif field[1] == 'UINT16':
+                field_value = int(from_bigendian(payload_data[idx:(idx + 2)], 2))
+                payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+                idx = idx + 2
+            elif field[1] == 'UINT8':
+                field_value = int(payload_data[idx])
+                payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+                idx = idx + 1
+            else:
+                field_value = 0
+                payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+                print('Bad Science Field Name')
     else:
-        packet_string = ''
-    return (packet_string)
+        payload_string = ''
+    return (payload_string)
 
 
 def open_serial_device():
@@ -819,7 +915,7 @@ def main():
     health_payloads_per_packet = 4
     health_payloads_pending = 1
     doing_health_payloads = False
-    science_payload_length = 76
+    science_payload_length = 83
     science_payloads_per_packet = 2
     science_payloads_pending = 1
     doing_science_payloads = False
@@ -863,6 +959,7 @@ def main():
     appwindow = builder.get_object("applicationwindow1")
     textview = builder.get_object("textview1")
     textview_buffer = textview.get_buffer()
+    textview.set_monospace(True)
     textview2 = builder.get_object("textview2")
     textview2_buffer = textview2.get_buffer()
     argwindow = builder.get_object("dialog1")
