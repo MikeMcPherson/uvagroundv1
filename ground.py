@@ -959,7 +959,7 @@ def main():
     appwindow = builder.get_object("applicationwindow1")
     textview = builder.get_object("textview1")
     textview_buffer = textview.get_buffer()
-    textview.set_monospace(True)
+    textview.set_monospace(monospace=True)
     textview2 = builder.get_object("textview2")
     textview2_buffer = textview2.get_buffer()
     argwindow = builder.get_object("dialog1")
