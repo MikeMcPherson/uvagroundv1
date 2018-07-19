@@ -665,8 +665,8 @@ def payload_decode(command, payload_data, payload_number):
             '        "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
             '        "sun_sensor_iii":"<SUN_SENSOR_III>",\n' +
             '        "sun_sensor_iv":"<SUN_SENSOR_IV>",\n' +
-            '        "sun_sensor_v":"<SUN_SENSOR_V>",\n' +
-            '    "],"\n'
+            '        "sun_sensor_v":"<SUN_SENSOR_V>"\n' +
+            '    ],\n'
     )
     science_payload_fields = [
             ['<LATITUDE>', 'LATLON'],
