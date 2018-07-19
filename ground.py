@@ -196,12 +196,12 @@ def on_command(button_label):
     if button_label == 'CEASE_XMIT':
         tc_data = array.array('B', [0x7F])
         tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, ax25_header, True, False)
+        transmit_packet(tc_packet, ax25_header, True, True)
 
     elif button_label == 'NOOP':
         tc_data = array.array('B', [0x09])
         tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, ax25_header, True, False)
+        transmit_packet(tc_packet, ax25_header, True, True)
 
     elif button_label == 'RESET':
         title = '"RESET" Arguments'
@@ -214,12 +214,12 @@ def on_command(button_label):
             tc_data = array.array('B', [0x04])
             tc_data.extend(to_bigendian(args[0], 2))
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-            transmit_packet(tc_packet, ax25_header, True, False)
+            transmit_packet(tc_packet, ax25_header, True, True)
 
     elif button_label == 'XMIT_COUNT':
         tc_data = array.array('B', [0x01])
         tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, ax25_header, False, False)
+        transmit_packet(tc_packet, ax25_header, False, True)
 
     elif button_label == 'XMIT_HEALTH':
         title = '"XMIT_HEALTH" Arguments'
@@ -233,7 +233,7 @@ def on_command(button_label):
             tc_data = array.array('B', [0x02])
             tc_data.append(args[0] & 0x00FF)
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-            transmit_packet(tc_packet, ax25_header, False, False)
+            transmit_packet(tc_packet, ax25_header, False, True)
 
     elif button_label == 'XMIT_SCIENCE':
         title = '"XMIT_SCIENCE" Arguments'
@@ -247,7 +247,7 @@ def on_command(button_label):
             tc_data = array.array('B', [0x03])
             tc_data.append(args[0] & 0x00FF)
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-            transmit_packet(tc_packet, ax25_header, False, False)
+            transmit_packet(tc_packet, ax25_header, False, True)
 
     elif button_label == 'READ_MEM':
         title = '"READ_MEM" Arguments'
@@ -262,7 +262,7 @@ def on_command(button_label):
             tc_data.extend(to_bigendian(args[0], 2))
             tc_data.extend(to_bigendian(args[1], 2))
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-            transmit_packet(tc_packet, ax25_header, False, False)
+            transmit_packet(tc_packet, ax25_header, False, True)
 
     elif button_label == 'WRITE_MEM':
         title = '"WRITE_MEM" Arguments'
@@ -279,7 +279,7 @@ def on_command(button_label):
             for a in args:
                 tc_data.extend(to_bigendian(a, 2))
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-            transmit_packet(tc_packet, ax25_header, True, False)
+            transmit_packet(tc_packet, ax25_header, True, True)
 
     elif button_label == 'SET_COMMS':
         title = '"SET_COMMS" Arguments'
@@ -303,12 +303,12 @@ def on_command(button_label):
             tc_data.extend([0x00, 0x00, 0x00, 0x00])
             tc_data.extend(to_bigendian(args[4], 2))
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-            transmit_packet(tc_packet, ax25_header, True, False)
+            transmit_packet(tc_packet, ax25_header, True, True)
 
     elif button_label == 'GET_COMMS':
         tc_data = array.array('B', [0x0C])
         tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, ax25_header, False, False)
+        transmit_packet(tc_packet, ax25_header, False, True)
 
     elif button_label == 'SET_MODE':
         title = '"SET_MODE" Arguments'
@@ -321,33 +321,33 @@ def on_command(button_label):
             tc_data = array.array('B', [0x0A])
             tc_data.append(args[0] & 0x00FF)
             tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-            transmit_packet(tc_packet, ax25_header, True, False)
+            transmit_packet(tc_packet, ax25_header, True, True)
 
     elif button_label == 'GET_MODE':
         tc_data = array.array('B', [0x0D])
         tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-        transmit_packet(tc_packet, ax25_header, False, False)
+        transmit_packet(tc_packet, ax25_header, False, True)
 
     elif button_label == 'PING_RETURN':
         tc_packet = array.array('B', [])
         for k in oa_key:
             tc_packet.append(k)
         tc_packet.append(0x31)
-        transmit_packet(tc_packet, ax25_header, False, True)
+        transmit_packet(tc_packet, ax25_header, False, False)
 
     elif button_label == 'RADIO_RESET':
         tc_packet = array.array('B', [])
         for k in oa_key:
             tc_packet.append(k)
         tc_packet.append(0x33)
-        transmit_packet(tc_packet, ax25_header, False, True)
+        transmit_packet(tc_packet, ax25_header, False, False)
 
     elif button_label == 'PIN_TOGGLE':
         tc_packet = array.array('B', [])
         for k in oa_key:
             tc_packet.append(k)
         tc_packet.append(0x34)
-        transmit_packet(tc_packet, ax25_header, False, True)
+        transmit_packet(tc_packet, ax25_header, False, False)
 
     else:
         print('Whoops, unrecognized button label:', button_label)
@@ -375,6 +375,7 @@ def process_received():
     global ack_timeout
     global sequence_number_window
     global turnaround
+    global ax25_header
 
     while True:
         ax25_packet = q_receive_packet.get()
@@ -391,7 +392,7 @@ def process_received():
         if tm_command == COMMAND_CODES['ACK']:
             last_tc_packet.clear()
         elif tm_command == COMMAND_CODES['NAK']:
-            print('Received NAK')
+            transmit_packet(last_tc_packet[-1], ax25_header, False, False)
         elif tm_command == COMMAND_CODES['XMIT_COUNT']:
             health_payloads_pending = from_bigendian(tm_data[1:3], 2)
             science_payloads_pending = from_bigendian(tm_data[3:5], 2)
@@ -538,7 +539,8 @@ def display_packet():
         textview_buffer.insert(textview_buffer.get_end_iter(), "{\n")
 
         tv_header = ('    "sender":"<SENDER>", ' +
-                     '"packet_type":"<PACKET_TYPE>",\n')
+                     '"packet_type":"<PACKET_TYPE>", ' +
+                     '"command":"<COMMAND>",\n')
 
         tv_spp = ('    "gps_week":"<GPS_WEEK>", ' +
                   '"gps_time":"<GPS_TIME>", ' +
@@ -762,7 +764,7 @@ Transmit and receive packets
 """
 
 
-def transmit_packet(tc_packet, ax25_header, expect_ack, is_oa_packet):
+def transmit_packet(tc_packet, ax25_header, expect_ack, save_tc_packet):
     global use_serial
     global rx_obj
     global tx_obj
@@ -777,7 +779,7 @@ def transmit_packet(tc_packet, ax25_header, expect_ack, is_oa_packet):
     else:
         kiss_packet = kiss_wrap(ax25_packet)
         tx_obj.send(kiss_packet)
-    if not is_oa_packet:
+    if save_tc_packet:
         last_sn = ground_sequence_number
         ground_sequence_number = ground_sequence_number + 1
         if ground_sequence_number > 65535:
@@ -794,7 +796,7 @@ def send_ack(sequence_numbers, spp_header_len):
     for s in sequence_numbers:
         tc_data.extend(to_bigendian(s, 2))
     tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, ax25_header, False, False)
+    transmit_packet(tc_packet, ax25_header, False, True)
     return (tc_packet)
 
 
@@ -805,7 +807,7 @@ def send_nak(sequence_numbers, spp_header_len):
     for s in sequence_numbers:
         tc_data.extend(to_bigendian(s, 2))
     tc_packet = spp_wrap('TC', tc_data, spp_header_len, ground_sequence_number, ground_station_key)
-    transmit_packet(tc_packet, ax25_header, False, False)
+    transmit_packet(tc_packet, ax25_header, False, True)
     return (tc_packet)
 
 

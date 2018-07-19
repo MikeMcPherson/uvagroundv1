@@ -58,14 +58,14 @@ def transmit_packet(packet, ax25_header, sequence_number, tx_obj, use_serial, tu
     return sequence_number
 
 
-def send_ack(ground_sequence_numbers, sequence_number, ax25_header, spp_header_len, key, tx_obj, use_serial, turnaround):
+def send_ack(sequence_number, ax25_header, spp_header_len, key, tx_obj, use_serial, turnaround):
     data = array.array('B', [0x05])
     tm_packet = spp_wrap('TM', data, spp_header_len, sequence_number, key)
     sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial, turnaround)
     return tm_packet, sequence_number
 
 
-def send_nak(ground_sequence_numbers, sequence_number, ax25_header, spp_header_len, key, tx_obj, use_serial, turnaround):
+def send_nak(sequence_number, ax25_header, spp_header_len, key, tx_obj, use_serial, turnaround):
     data = array.array('B', [0x06])
     tm_packet = spp_wrap('TM', data, spp_header_len, sequence_number, key)
     sequence_number = transmit_packet(tm_packet, ax25_header, sequence_number, tx_obj, use_serial, turnaround)
@@ -224,17 +224,17 @@ def main():
             else:
                 print('Libertas: unrecognized OA command')
         else:
+            validation_mask = validate_packet('TC', tc_packet, spp_header_len, expected_ground_sequence_number,
+                                              ground_station_key)
+            if validation_mask != 0:
+                print('Libertas: failed MAC check')
+                spacecraft_sequence_number = send_nak(spacecraft_sequence_number, ax25_header,
+                                                      spp_header_len, spacecraft_key, tx_obj, use_serial, turnaround)
+                break
             expected_ground_sequence_number = expected_ground_sequence_number + 1
             if expected_ground_sequence_number > 65535:
                 expected_ground_sequence_number = 1
             ground_sequence_numbers.append(from_bigendian(tc_packet[(spp_header_len - 2):spp_header_len], 2))
-            validation_mask = validate_packet('TC', tc_packet, spp_header_len, expected_ground_sequence_number,
-                                              ground_station_key)
-            if validation_mask != 0:
-                print('Libertas: failed HMAC check')
-                spacecraft_sequence_number = send_nak(ground_sequence_numbers, spacecraft_sequence_number, ax25_header,
-                                                      spp_header_len, spacecraft_key, tx_obj, use_serial, turnaround)
-                break
             tc_data, gps_week, gps_sow = spp_unwrap(tc_packet, spp_header_len)
             tc_command = tc_data[0]
             if tc_command == COMMAND_ACK:
@@ -251,8 +251,7 @@ def main():
             elif tc_command == COMMAND_CEASE_XMIT:
                 print('Received CEASE_XMIT')
                 last_sn = spacecraft_sequence_number
-                (tm_packet, spacecraft_sequence_number) = send_ack(ground_sequence_numbers,
-                                                                   spacecraft_sequence_number, ax25_header, spp_header_len,
+                (tm_packet, spacecraft_sequence_number) = send_ack(spacecraft_sequence_number, ax25_header, spp_header_len,
                                                                    spacecraft_key, tx_obj, use_serial, turnaround)
                 p_receive_packet.terminate()
                 rx_obj.close()
@@ -263,15 +262,13 @@ def main():
             elif tc_command == COMMAND_NOOP:
                 print('Received NOOP')
                 last_sn = spacecraft_sequence_number
-                (tm_packet, spacecraft_sequence_number) = send_ack(ground_sequence_numbers,
-                                                                   spacecraft_sequence_number, ax25_header, spp_header_len,
+                (tm_packet, spacecraft_sequence_number) = send_ack(spacecraft_sequence_number, ax25_header, spp_header_len,
                                                                    spacecraft_key, tx_obj, use_serial, turnaround)
 
             elif tc_command == COMMAND_RESET:
                 print('Received RESET')
                 last_sn = spacecraft_sequence_number
-                (tm_packet, spacecraft_sequence_number) = send_ack(ground_sequence_numbers,
-                                                                   spacecraft_sequence_number, ax25_header, spp_header_len,
+                (tm_packet, spacecraft_sequence_number) = send_ack(spacecraft_sequence_number, ax25_header, spp_header_len,
                                                                    spacecraft_key, tx_obj, use_serial, turnaround)
 
             elif tc_command == COMMAND_XMIT_COUNT:
@@ -329,8 +326,7 @@ def main():
             elif tc_command == COMMAND_WRITE_MEM:
                 print('Received WRITE_MEM')
                 last_sn = spacecraft_sequence_number
-                (tm_packet, spacecraft_sequence_number) = send_ack(ground_sequence_numbers,
-                                                                   spacecraft_sequence_number, ax25_header, spp_header_len,
+                (tm_packet, spacecraft_sequence_number) = send_ack(spacecraft_sequence_number, ax25_header, spp_header_len,
                                                                    spacecraft_key, tx_obj, use_serial, turnaround)
 
             elif tc_command == COMMAND_SET_COMMS:
@@ -343,8 +339,7 @@ def main():
                 expected_ground_sequence_number = from_bigendian(tc_data[7:9], 2)
                 turnaround = from_bigendian(tc_data[9:11], 2)
                 last_sn = spacecraft_sequence_number
-                (tm_packet, spacecraft_sequence_number) = send_ack(ground_sequence_numbers,
-                                                                   spacecraft_sequence_number, ax25_header, spp_header_len,
+                (tm_packet, spacecraft_sequence_number) = send_ack(spacecraft_sequence_number, ax25_header, spp_header_len,
                                                                    spacecraft_key, tx_obj, use_serial, turnaround)
 
             elif tc_command == COMMAND_GET_COMMS:
@@ -367,8 +362,7 @@ def main():
                 print('Received SET_MODE')
                 spacecraft_mode = tc_data[1]
                 last_sn = spacecraft_sequence_number
-                (tm_packet, spacecraft_sequence_number) = send_ack(ground_sequence_numbers,
-                                                                   spacecraft_sequence_number, ax25_header, spp_header_len,
+                (tm_packet, spacecraft_sequence_number) = send_ack(spacecraft_sequence_number, ax25_header, spp_header_len,
                                                                    spacecraft_key, tx_obj, use_serial, turnaround)
 
             elif tc_command == COMMAND_GET_MODE:
