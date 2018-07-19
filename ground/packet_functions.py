@@ -27,6 +27,7 @@ import array
 import time
 import hashlib
 import hmac
+from ground.chaskey import chaskey
 from ground.gpstime import gpsFromUTC
 import hexdump
 
@@ -55,7 +56,9 @@ def gps_time():
 
 
 def hmac_sign(packet, key):
-    digest = hmac.new(key, msg=packet, digestmod=hashlib.sha256).digest()
+    # digest = hmac.new(key, msg=packet, digestmod=hashlib.sha256).digest()
+    digest = chaskey(key, 16, packet).digest()
+    digest = digest + (b'\x00' * 16)
     return(digest)
     
     
