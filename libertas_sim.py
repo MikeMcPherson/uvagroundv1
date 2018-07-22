@@ -339,12 +339,10 @@ def main():
                         payloads_this_packet = min(science_payloads_pending, science_payloads_per_packet)
                         spp_data.append(payloads_this_packet)
                         for i in range(payloads_this_packet):
-                            print('Science payload')
                             science_payload = q_science_payloads.get()
                             for s in science_payload:
                                 spp_data.append(s)
                         for i in range(payloads_this_packet, science_payloads_per_packet):
-                            print('Science blank')
                             spp_data.extend([0x00] * science_payload_length)
                         tm_packet.set_sequence_number(spacecraft_sequence_number)
                         tm_packet.set_spp_data(spp_data)
