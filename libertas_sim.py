@@ -259,7 +259,8 @@ def main():
                 tm_data = array.array('B', [0x01])
                 for d in tc_packet.spp_data[1:5]:
                     tm_data.append(d)
-                number_of_locations = ((from_bigendian(tc_packet.spp_data[3:5], 2) - from_bigendian(tc_packet.spp_data[1:3], 2)) + 1)
+                number_of_locations = ((from_bigendian(tc_packet.spp_data[3:5], 2) -
+                                        from_bigendian(tc_packet.spp_data[1:3], 2)) + 1)
                 for i in range(number_of_locations):
                     tm_data.append(random.randint(0, 255))
                     tm_data.append(random.randint(0, 255))
@@ -314,13 +315,13 @@ def main():
                         doing_health_payloads = False
                         tm_packet = SppPacket('TM', spacecraft_key, dynamic=True)
                         spp_data = array.array('B', [0x02])
-                        payloads_this_packet = min(health_payloads_pending, 4)
+                        payloads_this_packet = min(health_payloads_pending, health_payloads_per_packet)
                         spp_data.append(payloads_this_packet)
                         for i in range(payloads_this_packet):
                             health_payload = q_health_payloads.get()
                             for h in health_payload:
                                 spp_data.append(h)
-                        for i in range(payloads_this_packet, 4):
+                        for i in range(payloads_this_packet, health_payloads_per_packet):
                             spp_data.extend([0x00] * health_payload_length)
                         tm_packet.set_sequence_number(spacecraft_sequence_number)
                         tm_packet.set_spp_data(spp_data)
@@ -334,18 +335,19 @@ def main():
                     if science_payloads_pending > 0:
                         doing_science_payloads = False
                         tm_packet = SppPacket('TM', spacecraft_key, dynamic=True)
-                        spp_data = array.array('B', [0x02])
-                        payloads_this_packet = min(science_payloads_pending, 4)
+                        spp_data = array.array('B', [0x03])
+                        payloads_this_packet = min(science_payloads_pending, science_payloads_per_packet)
                         spp_data.append(payloads_this_packet)
                         for i in range(payloads_this_packet):
                             print('Science payload')
                             science_payload = q_science_payloads.get()
                             for s in science_payload:
                                 spp_data.append(s)
-                        for i in range(payloads_this_packet, 4):
+                        for i in range(payloads_this_packet, science_payloads_per_packet):
                             print('Science blank')
                             spp_data.extend([0x00] * science_payload_length)
                         tm_packet.set_sequence_number(spacecraft_sequence_number)
+                        tm_packet.set_spp_data(spp_data)
                         tm_packet.transmit()
                         tm_packets_waiting_ack.append(tm_packet)
                         spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)

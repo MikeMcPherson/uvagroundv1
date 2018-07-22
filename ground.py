@@ -645,8 +645,7 @@ def display_packet():
 
             textview_buffer.insert(textview_buffer.get_end_iter(), tv_spp)
 
-            if ((dp_packet.spp_packet[0] == 0x08) and
-                    ((dp_packet.spp_data[0] == 0x02) or (dp_packet.spp_data[0] == 0x03))):
+            if ((dp_packet.spp_packet[0] == 0x08) and (dp_packet.spp_data[0] == 0x03)):
                 for n in range(dp_packet.spp_data[1]):
                     payload_begin = 2 + (science_payload_length * n)
                     payload_end = payload_begin + science_payload_length
@@ -727,6 +726,7 @@ def payload_decode(command, payload_data, payload_number):
             ['<GX>', 'UINT16'],
             ['<GY>', 'UINT16'],
             ['<GZ>', 'UINT16'],
+            ['<SUN_SENSOR_VI>', 'UINT16'],
             ['<SUN_SENSOR_I>', 'UINT16'],
             ['<SUN_SENSOR_II>', 'UINT16'],
             ['<SUN_SENSOR_III>', 'UINT16'],
