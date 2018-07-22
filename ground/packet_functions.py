@@ -25,11 +25,184 @@ __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
 import array
 import time
-import hashlib
-import hmac
 from ground.chaskey import chaskey
 from ground.gpstime import gpsFromUTC
 import hexdump
+import random
+import inspect
+from functools import wraps
+
+
+def pre_post(f):
+    @wraps(f)
+    def wrapper(self, *args, **kw):
+        if hasattr(self, 'pre') and inspect.ismethod(self.pre):
+            self.pre()
+        result = f(self, *args, **kw)
+        if hasattr(self, 'post') and inspect.ismethod(self.post):
+            self.post()
+        return result
+    return wrapper
+
+
+class SppPacket:
+    ax25_header = array.array('B', [])
+    oa_key = b''
+    use_serial = True
+    tx_obj = 0
+    turnaround = 1000
+    q_display_packet = 0
+    ground_maxsize_packets = False
+    mac_digest_len = 16
+
+    def __init__(self, packet_type, key, dynamic):
+        if packet_type == 'TC':
+            self.packet_type = 0x18
+        elif packet_type == 'TM':
+            self.packet_type = 0x08
+        elif packet_type == 'OA':
+            self.packet_type = 0
+        else:
+            self.packet_type = 0
+        self.key = key
+        self.dynamic = dynamic
+        self.is_spp_packet = False
+        self.is_oa_packet = False
+        self.packet_data_length = 0
+        self.gps_week, self.gps_sow = gps_time()
+        self.sequence_number = 0
+        self.spp_data = []
+        self.command = 0
+        self.expected_sequence_number = 0
+        self.validation_mask = 0
+        self.mac_digest = array.array('B', [])
+        self.spp_packet = array.array('B', [])
+        self.ax25_packet = array.array('B', [])
+        if self.dynamic:
+            self.post()
+
+    def pre(self):
+        if self.dynamic:
+            pass
+
+    def post(self):
+        if self.dynamic:
+            self.__spp_wrap()
+            self.__ax25_wrap()
+            self.__is_libertas_packet()
+            self.__validate_packet()
+
+    @pre_post
+    def set_sequence_number(self, sequence_number):
+        self.sequence_number = sequence_number
+
+    @pre_post
+    def set_spp_data(self, spp_data):
+        self.spp_data = spp_data
+
+    def parse_ax25(self, ax25_received):
+        self.ax25_packet = ax25_received
+        self.__ax25_unwrap()
+        self.__is_libertas_packet()
+        if self.is_spp_packet:
+            self.__spp_unwrap()
+            self.__validate_packet()
+        else:
+            self.command = self.ax25_packet[(16 + len(self.oa_key))]
+
+    def set_oa_command(self, command):
+        self.ax25_packet = array.array('B', [])
+        self.ax25_packet.extend(self.ax25_header)
+        for k in self.oa_key:
+            self.ax25_packet.append(k)
+        self.ax25_packet.append(command)
+        self.command = command
+
+    def transmit(self):
+        time.sleep(float(self.turnaround) / 1000.0)
+        if self.use_serial:
+            lithium_packet = lithium_wrap(self.ax25_packet)
+            self.tx_obj.write(lithium_packet)
+        else:
+            kiss_packet = kiss_wrap(self.ax25_packet)
+            self.tx_obj.send(kiss_packet)
+        self.q_display_packet.put(self.ax25_packet)
+
+    def __spp_wrap(self):
+        self.packet_data_length = 28 + len(self.spp_data) - 1
+        self.spp_packet = array.array('B', [])
+        self.spp_packet.append(self.packet_type)
+        self.spp_packet.extend(to_bigendian(self.packet_data_length, 2))
+        self.spp_packet.extend(spp_time_encode(self.gps_week, self.gps_sow))
+        self.spp_packet.extend(to_bigendian(self.sequence_number, 2))
+        self.spp_packet.extend(self.spp_data)
+        self.mac_digest = mac_sign(self.spp_packet[13:], self.key)
+        self.spp_packet.extend(self.mac_digest)
+
+    def __spp_unwrap(self):
+        self.packet_type = self.spp_packet[0]
+        self.packet_data_length = from_bigendian(self.spp_packet[1:3], 2)
+        self.gps_week, self.gps_sow = spp_time_decode(self.spp_packet[3:13])
+        self.sequence_number = from_bigendian(self.spp_packet[13:15], 2)
+        self.spp_data = self.spp_packet[15:(15 + (self.packet_data_length + 1) -12 - self.mac_digest_len)]
+        self.command = self.spp_data[0]
+        self.mac_digest = self.spp_packet[-self.mac_digest_len:]
+
+    def __ax25_wrap(self):
+        self.ax25_packet = array.array('B', [])
+        self.ax25_packet.extend(self.ax25_header)
+        self.ax25_packet.extend(self.spp_packet)
+        if self.ground_maxsize_packets and (self.packet_type == 0x18):
+            padding = 253 - len(self.ax25_packet)
+            if padding > 0:
+                self.ax25_packet.extend([0x00] * padding)
+
+    def __ax25_unwrap(self):
+        packet_data_length = from_bigendian(self.ax25_packet[17:19], 2)
+        if self.ground_maxsize_packets and (self.packet_type == 0x18):
+            padding = len(self.ax25_packet) - (16 + 3 + (packet_data_length + 1))
+            if padding > 0:
+                self.ax25_packet = self.ax25_packet[:(-padding)]
+        self.ax25_header = self.ax25_packet[:16]
+        self.spp_packet = self.ax25_packet[16:]
+
+    def __is_libertas_packet(self):
+        self.is_spp_packet = False
+        self.is_oa_packet = True
+        for idx, c in enumerate(self.oa_key):
+            if c != self.ax25_packet[(idx + 16)]:
+                self.is_oa_packet = False
+        if (self.ax25_packet[32] < 0x30) or (self.ax25_packet[32] > 0x34):
+            self.is_oa_packet = False
+        if not self.is_oa_packet:
+            self.is_spp_packet = True
+            packet_min_len = 48
+            if len(self.ax25_packet) < packet_min_len:
+                self.is_spp_packet = False
+            if (self.ax25_packet[14] != 0x03) or (self.ax25_packet[15] != 0xF0):
+                self.is_spp_packet = False
+
+    def __validate_packet(self):
+        mac_scope = self.spp_packet[13:-self.mac_digest_len]
+        validation_digest = mac_sign(mac_scope, self.key)
+        self.validation_mask = 0b00000000
+        for idx, v in enumerate(self.mac_digest):
+            if v != validation_digest[idx]:
+                self.validation_mask = self.validation_mask | 0b00000001
+
+
+def sn_increment(sequence_number):
+    sequence_number = sequence_number + 1
+    if sequence_number < 65535:
+        sequence_number = 1
+    return sequence_number
+
+
+def sn_decrement(sequence_number):
+    sequence_number = sequence_number - 1
+    if sequence_number == 0:
+        sequence_number = 1
+    return(sequence_number)
 
 
 def to_bigendian(input_integer, num_bytes):
@@ -64,13 +237,39 @@ def gps_time():
     return(gps_tm[0], gps_tm[1])
 
 
-def hmac_sign(packet, key):
-    # digest = hmac.new(key, msg=packet, digestmod=hashlib.sha256).digest()
-    digest = chaskey(key[:16], 16, packet).digest()
-    digest = digest + (b'\x00' * 16)
+def mac_sign(packet, key):
+    digest = chaskey(key, 16, packet).digest()
     return(digest)
-    
-    
+
+
+def make_ack(packet_type, packets_to_ack, key):
+    packet = SppPacket(packet_type, key, dynamic=True)
+    spp_data = array.array('B', [0x05])
+    if packet_type == 'TC':
+        if len(packets_to_ack) > 0:
+            spp_data.append(len(packets_to_ack))
+            for p in packets_to_ack:
+                spp_data.extend(to_bigendian(p.sequence_number, 2))
+        else:
+            spp_data.append(0x00)
+    packet.set_spp_data(spp_data)
+    return packet
+
+
+def make_nak(packet_type, packets_to_nak, key):
+    packet = SppPacket(packet_type, key, dynamic=True)
+    spp_data = array.array('B', [0x06])
+    if packet_type == 'TC':
+        if len(packets_to_nak) > 0:
+            spp_data.append(len(packets_to_nak))
+            for p in packets_to_nak:
+                spp_data.extend(to_bigendian(p.sequence_number, 2))
+        else:
+            spp_data.append(0x00)
+    packet.set_spp_data(spp_data)
+    return packet
+
+
 def receive_packet(my_packet_type, rx_obj, use_serial, q_receive_packet, q_display_packet):
     while True:
         if use_serial:
@@ -86,32 +285,19 @@ def receive_packet(my_packet_type, rx_obj, use_serial, q_receive_packet, q_displ
             rcv_packet = array.array('B', [])
             for c in rcv_string:
                 rcv_packet.append(c)
-        if len(rcv_packet) >= 20:
+        if len(rcv_packet) >= 18:
             if use_serial:
                 ax25_packet = lithium_unwrap(rcv_packet)
             else:
                 ax25_packet = kiss_unwrap(rcv_packet)
             if ax25_packet[16] != my_packet_type:
+                # if (random.random() <= 0.5) and (len(ax25_packet) >= 64) and (ax25_packet[16] == 0x08):
+                #     xor_idx = random.randrange(29, len(ax25_packet))
+                #     ax25_packet[xor_idx] = ax25_packet[xor_idx] ^ 0xFF
+                #     print('Simulated receive error, xor_idx, before/after', xor_idx, ax25_packet[xor_idx] ^ 0xFF,
+                #           ax25_packet[xor_idx])
                 q_receive_packet.put(ax25_packet)
                 q_display_packet.put(ax25_packet)
-
-
-def is_libertas_packet(packet_type, ax25_packet, spp_header_len, oa_key):
-    is_spp_packet = False
-    is_oa_packet = True
-    for idx, c in enumerate(oa_key):
-        if c != ax25_packet[(idx + 16)]:
-            is_oa_packet = False
-    if (ax25_packet[32] < 0x30) or (ax25_packet[32] > 0x34):
-        is_oa_packet = False
-    if not is_oa_packet:
-        is_spp_packet = True
-        packet_min_len = 64
-        if len(ax25_packet) < packet_min_len:
-            is_spp_packet = False
-        if (ax25_packet[14] != 0x03) or (ax25_packet[15] != 0xF0):
-            is_spp_packet = False
-    return(is_spp_packet, is_oa_packet)
 
 
 def init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid):
@@ -125,32 +311,18 @@ def init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid):
     ax25_header.append(0x03)
     ax25_header.append(0xF0)
     return(ax25_header)
-    
-
-def spp_wrap(packet_type, data, spp_header_len, sequence_number, key):
-    if packet_type == 'TM':
-        packet = array.array('B', [0x08, 0x00, 0x00])
-    else:
-        packet = array.array('B', [0x18, 0x00, 0x00])
-    gps_tm = gps_time()
-    packet.extend(spp_time_encode(gps_tm[0], gps_tm[1]))
-    packet.extend(to_bigendian(sequence_number, 2))
-    for d in data:
-        packet.append(d)
-    hmac_scope = packet[(spp_header_len - 2):]
-    digest = hmac_sign(hmac_scope, key)
-    packet.extend(digest)
-    packet_info = packet.buffer_info()
-    packet[2] = packet_info[1] - 3 - 1
-    return(packet)
 
 
-def spp_unwrap(packet, spp_header_len):
-    data = packet[spp_header_len:-32]
-    gps_week, gps_sow = spp_time_decode(packet[3:13])
-    return(data, gps_week, gps_sow)
-    
-    
+def ax25_callsign(b_callsign):
+    c_callsign = ''
+    for b in b_callsign[0:6]:
+        c_callsign = c_callsign + chr((b & 0b11111110) >> 1)
+    c_callsign = c_callsign + '-'
+    c_callsign = c_callsign + str((b_callsign[6] & 0b00011110) >> 1)
+    c_callsign = c_callsign.replace(' ','')
+    return(c_callsign)
+
+
 def spp_time_encode(gps_week, gps_sow):
     spp_time_array = array.array('B', [])
     temp_sow = "{:14.7f}".format(gps_sow).split('.')
@@ -199,28 +371,6 @@ def lithium_unwrap(lithium_packet):
     return(tm_packet)
 
 
-def ax25_wrap(packet_type, packet, ax25_header):
-    ax25_packet = array.array('B', [])
-    for h in ax25_header:
-        ax25_packet.append(h)
-    for p in packet:
-        ax25_packet.append(p)
-    if packet_type == 'TC':
-        padding = 253 - len(ax25_packet)
-        if padding > 0:
-            ax25_packet.extend([0x00]*padding)
-    return(ax25_packet)
-
-
-def ax25_unwrap(ax25_packet):
-    packet_data_length = from_bigendian(ax25_packet[17:19], 2)
-    padding = len(ax25_packet) - (16 + 3 + (packet_data_length + 1))
-    if padding > 0:
-        ax25_packet = ax25_packet[:(-padding)]
-    packet = ax25_packet[16:]
-    return(packet)
-    
-
 FEND = 0xC0
 FESC = 0xDB
 TFEND = 0xDC
@@ -252,24 +402,3 @@ def kiss_unwrap(kiss_packet):
         else:
             packet.append(k)
     return(packet)
-
-
-def ax25_callsign(b_callsign):
-    c_callsign = ''
-    for b in b_callsign[0:6]:
-        c_callsign = c_callsign + chr((b & 0b11111110) >> 1)
-    c_callsign = c_callsign + '-'
-    c_callsign = c_callsign + str((b_callsign[6] & 0b00011110) >> 1)
-    c_callsign = c_callsign.replace(' ','')
-    return(c_callsign)
-
-
-def validate_packet(packet_type, packet, spp_header_len, sequence_number, key):
-    hmac_scope = packet[(spp_header_len - 2):-32]
-    ground_digest = packet[-32:]
-    validation_digest = hmac_sign(hmac_scope, key)
-    validation_mask = 0
-    for idx, v in enumerate(ground_digest):
-        if v != validation_digest[idx]:
-            validation_mask = validation_mask | 0b00000001
-    return(validation_mask)
