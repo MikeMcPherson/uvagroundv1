@@ -23,6 +23,8 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
+import os
+import subprocess
 import configparser
 import logging
 import gi
@@ -460,8 +462,10 @@ Helpers
 def do_destroy(do_save):
     global textview_buffer
     global p_receive_packet
+    global gs_xcvr_uhd_pid
     textview_buffer.insert(textview_buffer.get_end_iter(), "]\n}\n")
     p_receive_packet.terminate()
+    gs_xcvr_uhd_pid.kill()
     if do_save:
         save_file()
     Gtk.main_quit()
@@ -815,6 +819,7 @@ def main():
     global last_tc_packet
     global first_packet
     global tc_packets_waiting_ack
+    global gs_xcvr_uhd_pid
 
     serial_device_name = 'pty_libertas'
     buffer_saved = False
@@ -855,6 +860,7 @@ def main():
     debug = config['general'].getboolean('debug')
     program_name = config['general']['program_name']
     program_version = config['general']['program_version']
+    gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     use_serial = config['comms'].getboolean('use_serial')
     turnaround = float(config['comms']['turnaround']) / 1000.0
     spacecraft_key = config['comms']['spacecraft_key'].encode()
@@ -867,6 +873,11 @@ def main():
     else:
         logging.basicConfig(filename='ground.log', level=logging.INFO, format='%(asctime)s %(message)s')
     logging.info('%s %s: Run started', program_name, program_version)
+
+    if not use_serial:
+        print('Please wait while the radio starts...')
+        gs_xcvr_uhd_pid = subprocess.Popen([gs_xcvr_uhd])
+        time.sleep(15.0)
 
     ax25_header = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
     SppPacket.ax25_header = ax25_header
