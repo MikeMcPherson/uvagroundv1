@@ -31,11 +31,6 @@ from gi.repository import Gtk
 from gi.repository import GObject
 import array
 import time
-from ground.packet_functions import SppPacket
-from ground.packet_functions import receive_packet, make_ack, make_nak
-from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
-from ground.packet_functions import init_ax25_header, sn_increment, sn_decrement
-from ground.packet_functions import ax25_callsign
 import serial
 import json
 import threading
@@ -44,6 +39,12 @@ import socket
 import multiprocessing as mp
 import hexdump
 import random
+from ground.constant import COMMAND_CODES, COMMAND_NAMES
+from ground.packet_functions import SppPacket, RadioDevice
+from ground.packet_functions import receive_packet, make_ack, make_nak
+from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
+from ground.packet_functions import init_ax25_header, sn_increment, sn_decrement
+from ground.packet_functions import ax25_callsign
 
 """
 GUI Handlers
@@ -51,6 +52,12 @@ GUI Handlers
 
 
 class Handler:
+    filechooserwindow = None
+    filedialog_save = None
+    filechooser2window = None
+    baudrates = None
+    label11 = None
+    radio = None
 
     def on_destroy(self, *args):
         do_save = True
@@ -62,7 +69,7 @@ class Handler:
 
     def on_command(self, button):
         button_label = button.get_label().replace('...', '')
-        on_command(button_label)
+        process_command(button_label)
 
     def on_dialog1_cancel(self, button):
         dialog1_cancel()
@@ -77,16 +84,12 @@ class Handler:
         save_file_as()
 
     def on_filechooserdialog1_cancel(self, button):
-        global filechooserwindow
-        global filedialog_save
-        filechooserwindow.hide()
-        filedialog_save = False
+        self.filechooserwindow.hide()
+        self.filedialog_save = False
 
     def on_filechooserdialog1_save(self, button):
-        global filechooserwindow
-        global filedialog_save
-        filechooserwindow.hide()
-        filedialog_save = True
+        self.filechooserwindow.hide()
+        self.filedialog_save = True
 
     def on_load(self, button):
         load_file()
@@ -104,46 +107,26 @@ class Handler:
         script_clear()
 
     def on_use_output(self, button):
-        global use_serial
-        global rx_port
-        global tx_port
-        global rx_obj
-        global tx_obj
+        self.radio.close()
         use_serial = button.get_active()
-        if use_serial:
-            try:
-                rx_obj.close()
-                tx_obj.close()
-            except:
-                pass
-            open_serial_device()
-        else:
-            try:
-                rx_obj.close()
-            except:
-                pass
-            open_usrp_device()
+        RadioDevice.use_serial = use_serial
+        self.radio.open()
 
     def on_filechooserdialog2_cancel(self, button):
-        global filechooser2window
-        filechooser2window.hide()
+        self.filechooser2window.hide()
 
     def on_filechooserdialog2_open(self, button):
-        global filechooser2window
-        filechooser2window.hide()
+        self.filechooser2window.hide()
 
     def on_combobox1_changed(self, button):
-        global baudrates
-        global rx_obj
-        rx_obj.baudrate = baudrates[button.get_active()]
+        self.radio.set_baudrate = self.baudrates[button.get_active()]
 
     def validate_entry_uint16(self, entry):
-        global label11
         try:
             i = int(entry.get_text(), 0)
-            label11.set_text('')
+            self.label11.set_text('')
         except ValueError:
-            label11.set_text('Field must be numeric.')
+            self.label11.set_text('Field must be numeric.')
 
 
 def dialog1_run(title, labels, defaults, tooltips):
@@ -162,7 +145,7 @@ def dialog1_run(title, labels, defaults, tooltips):
         else:
             label_objs[i].set_visible(True)
             entry_objs[i].set_visible(True)
-    argwindow.run()
+    response = argwindow.run()
     return [int(entry_objs[0].get_text(), 0), int(entry_objs[1].get_text(), 0),
             int(entry_objs[2].get_text(), 0), int(entry_objs[3].get_text(), 0),
             int(entry_objs[4].get_text(), 0), int(entry_objs[5].get_text(), 0),
@@ -188,7 +171,7 @@ Ground Commands
 """
 
 
-def on_command(button_label):
+def process_command(button_label):
     global ground_sequence_number
     global ground_station_key
     global dialog1_xmit
@@ -197,7 +180,7 @@ def on_command(button_label):
     do_transmit_packet = False
     do_sn_increment = False
     expect_ack = False
-    tc_packet = SppPacket('TC', ground_station_key, dynamic=True)
+    tc_packet = SppPacket('TC', dynamic=True)
 
     if button_label == 'CEASE_XMIT':
         tc_data = array.array('B', [0x7F])
@@ -367,21 +350,21 @@ def on_command(button_label):
             tc_packet.set_sequence_number(ground_sequence_number)
 
     elif button_label == 'PING_RETURN':
-        tc_packet = SppPacket('OA', ground_station_key, dynamic=True)
+        tc_packet = SppPacket('OA', dynamic=True)
         tc_packet.set_oa_command(0x31)
         do_transmit_packet = True
         do_sn_increment = False
         expect_ack = False
 
     elif button_label == 'RADIO_RESET':
-        tc_packet = SppPacket('OA', ground_station_key, dynamic=True)
+        tc_packet = SppPacket('OA', dynamic=True)
         tc_packet.set_oa_command(0x33)
         do_transmit_packet = True
         do_sn_increment = False
         expect_ack = False
 
     elif button_label == 'PIN_TOGGLE':
-        tc_packet = SppPacket('OA', ground_station_key, dynamic=True)
+        tc_packet = SppPacket('OA', dynamic=True)
         tc_packet.set_oa_command(0x34)
         do_transmit_packet = True
         do_sn_increment = False
@@ -414,22 +397,19 @@ def process_received():
     global tc_packets_waiting_ack
     global q_receive_packet
     global q_display_packet
-    global COMMANDS
-    global COMMANDS_R
     global health_payloads_pending
     global science_payloads_pending
     global tm_packet_window
     global transmit_timeout_count
     global ack_timeout
     global sequence_number_window
-    global turnaround
 
     while True:
         ax25_packet = q_receive_packet.get()
-        tm_packet = SppPacket('TM', spacecraft_key, dynamic=False)
+        tm_packet = SppPacket('TM', dynamic=False)
         tm_packet.parse_ax25(ax25_packet)
         if tm_packet.validation_mask != 0:
-            tc_packet = make_nak([], ground_station_key)
+            tc_packet = make_nak('TC', [])
             tc_packet.transmit()
             ground_sequence_number = sn_increment(ground_sequence_number)
             break
@@ -461,12 +441,13 @@ def process_received():
             ack_timeout = tm_packet.spp_data[3]
             sequence_number_window = tm_packet.spp_data[4]
             turnaround = from_bigendian(tm_packet.spp_data[9:11], 2)
+            SppPacket.turnaround = turnaround
             do_transmit_packet = True
         else:
             pass
 
         if do_transmit_packet:
-            tc_packet = make_ack('TC', [], ground_station_key)
+            tc_packet = make_ack('TC', [])
             tc_packet.transmit()
             ground_sequence_number = sn_increment(ground_sequence_number)
             tc_packets_waiting_ack = []
@@ -568,7 +549,6 @@ def display_packet():
     global textview_buffer
     global first_packet
     global q_display_packet
-    global COMMAND_NAMES
     global health_payload_length
     global science_payload_length
     global spacecraft_key
@@ -578,11 +558,11 @@ def display_packet():
         values_per_row = 8
         ax25_packet = q_display_packet.get()
         if ax25_packet[16] == 0x18:
-            dp_packet = SppPacket('TC', ground_station_key, dynamic=False)
+            dp_packet = SppPacket('TC', dynamic=False)
         elif ax25_packet[16] == 0x08:
-            dp_packet = SppPacket('TM', spacecraft_key, dynamic=False)
+            dp_packet = SppPacket('TM', dynamic=False)
         else:
-            dp_packet = SppPacket('OA', ground_station_key, dynamic=False)
+            dp_packet = SppPacket('OA', dynamic=False)
         dp_packet.parse_ax25(ax25_packet)
         if first_packet:
             textview_buffer.insert(textview_buffer.get_end_iter(), "{\n\"packets\" : [\n")
@@ -625,18 +605,21 @@ def display_packet():
             packet_type = 'TM'
             tv_header = tv_header.replace('<SENDER>', 'spacecraft')
             tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
+            tv_header = tv_header.replace('<COMMAND>', COMMAND_NAMES[dp_packet.command])
             tv_spp = tv_spp.replace('<SENDER>', 'spacecraft')
             tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
         elif dp_packet.packet_type == 0x18:
             packet_type = 'TC'
             tv_header = tv_header.replace('<SENDER>', 'ground')
             tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
+            tv_header = tv_header.replace('<COMMAND>', COMMAND_NAMES[dp_packet.command])
             tv_spp = tv_spp.replace('<SENDER>', 'ground')
             tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
         else:
             packet_type = 'UNKNOWN'
             tv_header = tv_header.replace('<SENDER>', 'spacecraft')
             tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
+            tv_header = tv_header.replace('<COMMAND>', 'UNKNOWN')
 
         textview_buffer.insert(textview_buffer.get_end_iter(), tv_header)
 
@@ -683,7 +666,6 @@ def display_packet():
 
 
 def payload_decode(command, payload_data, payload_number):
-    global COMMAND_CODES
     science_payload_string = (
             '    "payload<PAYLOAD_NUMBER>":[\n'
             '        "payload_type":"SCIENCE",\n' +
@@ -790,25 +772,6 @@ def payload_decode(command, payload_data, payload_number):
     return (payload_string)
 
 
-def open_serial_device():
-    global serial_device_name
-    global rx_obj
-    rx_obj = serial.Serial(serial_device_name, baudrate=4800)
-    SppPacket.tx_obj = rx_obj
-
-
-def open_usrp_device():
-    global rx_port
-    global tx_port
-    global rx_obj
-    global tx_obj
-    rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    rx_obj.connect(('localhost', rx_port))
-    tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tx_obj.connect(('localhost', tx_port))
-    SppPacket.tx_obj = tx_obj
-
-
 """
 Main
 """
@@ -824,33 +787,18 @@ def main():
     global filechooserwindow
     global filechooser2window
     global combobox1
-    global baudrates
     global radiobutton1
     global radiobutton2
     global buffer_saved
     global filedialog_save
     global entry_objs
     global label_objs
-    global label11
-    global ax25_destination
-    global ax25_source
     global spp_header_len
     global ground_sequence_number
     global spacecraft_sequence_numbers
-    global use_serial
-    global serial_device_name
-    global rx_port
-    global tx_port
-    global rx_obj
-    global tx_obj
-    global spacecraft_key
-    global ground_station_key
-    global oa_key
     global q_display_packet
-    global receive_thread
     global p_receive_packet
     global q_receive_packet
-    global process_thread
     global expected_spacecraft_sequence_number
     global health_payload_length
     global health_payloads_per_packet
@@ -866,39 +814,14 @@ def main():
     global sequence_number_window
     global last_tc_packet
     global first_packet
-    global COMMAND_NAMES
-    global COMMAND_CODES
-    global dst_callsign
-    global src_callsign
-    global ax25_header
-    global turnaround
     global tc_packets_waiting_ack
 
-    COMMAND_NAMES = {
-        0x05: 'ACK',
-        0x06: 'NAK',
-        0x7F: 'CEASE_XMIT',
-        0x09: 'NOOP',
-        0x04: 'RESET',
-        0x01: 'XMIT_COUNT',
-        0x02: 'XMIT_HEALTH',
-        0x03: 'XMIT_SCIENCE',
-        0x08: 'READ_MEM',
-        0x07: 'WRITE_MEM',
-        0x0B: 'SET_COMMS',
-        0x0C: 'GET_COMMS',
-        0x0A: 'SET_MODE',
-        0x31: 'PING_RETURN',
-        0x33: 'RADIO_RESET',
-        0x34: 'PIN_TOGGLE'
-    }
-    COMMAND_CODES = {}
-    for code, cmd in COMMAND_NAMES.items():
-        COMMAND_CODES.update({cmd: code})
     serial_device_name = 'pty_libertas'
     buffer_saved = False
     filedialog_save = False
     first_packet = True
+    rx_server = 'localhost'
+    tx_server = 'localhost'
     rx_port = 9501
     tx_port = 9500
     dst_callsign = 'W4UVA '
@@ -951,11 +874,19 @@ def main():
     SppPacket.use_serial = use_serial
     SppPacket.turnaround = turnaround
     SppPacket.ground_maxsize_packets = ground_maxsize_packets
+    SppPacket.spacecraft_key = spacecraft_key
+    SppPacket.ground_station_key = ground_station_key
 
-    if use_serial:
-        open_serial_device()
-    else:
-        open_usrp_device()
+    RadioDevice.use_serial = use_serial
+    RadioDevice.rx_server = rx_server
+    RadioDevice.rx_port = rx_port
+    RadioDevice.tx_server = tx_server
+    RadioDevice.tx_port = tx_port
+    RadioDevice.serial_device_name = serial_device_name
+
+    radio = RadioDevice()
+    radio.open()
+    SppPacket.radio = radio
 
     q_receive_packet = mp.Queue()
     q_display_packet = mp.Queue()
@@ -1007,7 +938,13 @@ def main():
     appwindow.set_title(appwindow_title)
     appwindow.show_all()
 
-    p_receive_packet = mp.Process(target=receive_packet, args=(my_packet_type, rx_obj, use_serial,
+    Handler.filechooserwindow = filechooserwindow
+    Handler.filedialog_save = filedialog_save
+    Handler.filechooser2window = filechooser2window
+    Handler.baudrates = baudrates
+    Handler.label11 = label11
+
+    p_receive_packet = mp.Process(target=receive_packet, args=(my_packet_type, radio,
                                                                q_receive_packet, q_display_packet))
     p_receive_packet.start()
     process_thread = threading.Thread(name='process_received', target=process_received, daemon=True)

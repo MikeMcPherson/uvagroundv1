@@ -27,10 +27,6 @@ __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 import configparser
 import logging
 import array
-from ground.packet_functions import SppPacket
-from ground.packet_functions import receive_packet, make_ack, make_nak
-from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
-from ground.packet_functions import init_ax25_header, sn_increment, sn_decrement
 import serial
 import hexdump
 import random
@@ -38,6 +34,10 @@ import socket
 import multiprocessing as mp
 from inspect import currentframe
 import random
+from ground.packet_functions import SppPacket, RadioDevice
+from ground.packet_functions import receive_packet, make_ack, make_nak
+from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
+from ground.packet_functions import init_ax25_header, sn_increment, sn_decrement
 
 
 def main():
@@ -76,6 +76,8 @@ def main():
     ack_timeout = 10
     sequence_number_window = 2
     tm_packets_waiting_ack = []
+    rx_server = 'gs-s-2.w4uva.org'
+    tx_server = rx_server
     rx_port = 9501
     tx_port = 9500
     dst_callsign = 'W4UVA '
@@ -123,28 +125,32 @@ def main():
     SppPacket.ax25_header = ax25_header
     SppPacket.oa_key = oa_key
     SppPacket.ground_maxsize_packets = ground_maxsize_packets
+    SppPacket.turnaround = turnaround
+    SppPacket.spacecraft_key = spacecraft_key
+    SppPacket.ground_station_key = ground_station_key
 
-    if use_serial:
-        rx_obj = serial.Serial(serial_device_name, baudrate=9600)
-        tx_obj = rx_obj
-    else:
-        rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        rx_obj.connect(('gs-s-2.w4uva.org', rx_port))
-        tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tx_obj.connect(('gs-s-2.w4uva.org', tx_port))
-    SppPacket.tx_obj = tx_obj
+    RadioDevice.use_serial = use_serial
+    RadioDevice.rx_server = rx_server
+    RadioDevice.rx_port = rx_port
+    RadioDevice.tx_server = tx_server
+    RadioDevice.tx_port = tx_port
+    RadioDevice.serial_device_name = serial_device_name
+
+    radio = RadioDevice()
+    radio.open()
+    SppPacket.radio = radio
 
     q_receive_packet = mp.Queue()
     q_display_packet = mp.Queue()
     SppPacket.q_display_packet = q_display_packet
-    p_receive_packet = mp.Process(target=receive_packet, args=(my_packet_type, rx_obj, use_serial,
+    p_receive_packet = mp.Process(target=receive_packet, args=(my_packet_type, radio,
                                                                q_receive_packet, q_display_packet))
     p_receive_packet.start()
 
     while True:
         ax25_packet = q_receive_packet.get()
         q_display_packet.get()
-        tc_packet = SppPacket('TC', ground_station_key, dynamic=False)
+        tc_packet = SppPacket('TC', dynamic=False)
         tc_packet.parse_ax25(ax25_packet)
         if tc_packet.is_oa_packet:
             if tc_packet.command == 0x31:
@@ -154,8 +160,7 @@ def main():
             elif tc_packet.command == 0x34:
                 print("Libertas received OA PIN_TOGGLE_COMMAND, exiting...")
                 p_receive_packet.terminate()
-                rx_obj.close()
-                tx_obj.close()
+                radio.close()
                 logging.info('%s %s: Run ended', program_name, program_version)
                 exit()
             else:
@@ -190,7 +195,7 @@ def main():
 
             elif tc_packet.command == COMMAND_CEASE_XMIT:
                 print('Received CEASE_XMIT')
-                tm_packet = make_ack('TM', [], spacecraft_key)
+                tm_packet = make_ack('TM', [])
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
@@ -199,28 +204,28 @@ def main():
 
             elif tc_packet.command == COMMAND_NOOP:
                 print('Received NOOP')
-                tm_packet = make_ack('TM', [], spacecraft_key)
+                tm_packet = make_ack('TM', [])
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
             elif tc_packet.command == COMMAND_RESET:
                 print('Received RESET')
-                tm_packet = make_ack('TM', [], spacecraft_key)
+                tm_packet = make_ack('TM', [])
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
             elif tc_packet.command == COMMAND_WRITE_MEM:
                 print('Received WRITE_MEM')
-                tm_packet = make_ack('TM', [], spacecraft_key)
+                tm_packet = make_ack('TM', [])
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
             elif tc_packet.command == COMMAND_SET_MODE:
                 print('Received SET_MODE')
-                tm_packet = make_ack('TM', [], spacecraft_key)
+                tm_packet = make_ack('TM', [])
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
@@ -234,7 +239,8 @@ def main():
                 spacecraft_sequence_number = from_bigendian(tc_packet.spp_data[5:7], 2)
                 expected_ground_sequence_number = from_bigendian(tc_packet.spp_data[7:9], 2)
                 turnaround = from_bigendian(tc_packet.spp_data[9:11], 2)
-                tm_packet = make_ack('TM', [], spacecraft_key)
+                SppPacket.turnaround = turnaround
+                tm_packet = make_ack('TM', [])
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
 
@@ -242,7 +248,7 @@ def main():
 
             elif tc_packet.command == COMMAND_XMIT_COUNT:
                 print('Received XMIT_COUNT')
-                tm_packet = SppPacket('TM', spacecraft_key, dynamic=True)
+                tm_packet = SppPacket('TM', dynamic=True)
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_data = array.array('B', [0x01])
                 tm_data.extend(to_bigendian(health_payloads_pending, 2))
@@ -254,7 +260,7 @@ def main():
 
             elif tc_packet.command == COMMAND_READ_MEM:
                 print('Received READ_MEM')
-                tm_packet = SppPacket('TM', spacecraft_key, dynamic=True)
+                tm_packet = SppPacket('TM', dynamic=True)
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_data = array.array('B', [0x01])
                 for d in tc_packet.spp_data[1:5]:
@@ -271,7 +277,7 @@ def main():
 
             elif tc_packet.command == COMMAND_GET_COMMS:
                 print('Received GET_COMMS')
-                tm_packet = SppPacket('TM', spacecraft_key, dynamic=True)
+                tm_packet = SppPacket('TM', dynamic=True)
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_data = array.array('B', [0x01])
                 tm_data.append(tm_packet_window & 0xFF)
@@ -313,7 +319,7 @@ def main():
                 if doing_health_payloads:
                     if health_payloads_pending > 0:
                         doing_health_payloads = False
-                        tm_packet = SppPacket('TM', spacecraft_key, dynamic=True)
+                        tm_packet = SppPacket('TM', dynamic=True)
                         spp_data = array.array('B', [0x02])
                         payloads_this_packet = min(health_payloads_pending, health_payloads_per_packet)
                         spp_data.append(payloads_this_packet)
@@ -334,7 +340,7 @@ def main():
                 elif doing_science_payloads:
                     if science_payloads_pending > 0:
                         doing_science_payloads = False
-                        tm_packet = SppPacket('TM', spacecraft_key, dynamic=True)
+                        tm_packet = SppPacket('TM', dynamic=True)
                         spp_data = array.array('B', [0x03])
                         payloads_this_packet = min(science_payloads_pending, science_payloads_per_packet)
                         spp_data.append(payloads_this_packet)

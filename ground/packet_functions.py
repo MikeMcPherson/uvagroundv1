@@ -27,10 +27,72 @@ import array
 import time
 from ground.chaskey import chaskey
 from ground.gpstime import gpsFromUTC
+import serial
+import socket
 import hexdump
 import random
 import inspect
 from functools import wraps
+
+
+class RadioDevice:
+    use_serial = None
+    rx_server = None
+    rx_port = None
+    rx_obj = None
+    tx_server = None
+    tx_port = None
+    tx_obj = None
+    serial_device_name = None
+
+    def open(self):
+        if self.use_serial:
+            self.rx_obj = serial.Serial(self.serial_device_name, baudrate=9600)
+            self.tx_obj = self.rx_obj
+        else:
+            self.rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.rx_obj.connect((self.rx_server, self.rx_port))
+            self.tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.tx_obj.connect((self.tx_server, self.tx_port))
+
+    def close(self):
+        try:
+            self.rx_obj.close()
+            self.tx_obj.close()
+        except:
+            pass
+
+    def set_baudrate(self, baudrate):
+        self.rx_obj.baudrate = baudrate
+
+    def receive(self):
+        if self.use_serial:
+            serial_buffer = self.rx_obj.read(8)
+            rcv_packet = array.array('B', [])
+            for s in serial_buffer:
+                rcv_packet.append(s)
+            serial_buffer = self.rx_obj.read(rcv_packet[5] + 2)
+            for s in serial_buffer:
+                rcv_packet.append(s)
+        else:
+            rcv_string = self.rx_obj.recv(1024)
+            rcv_packet = array.array('B', [])
+            for c in rcv_string:
+                rcv_packet.append(c)
+        if len(rcv_packet) >= 18:
+            if self.use_serial:
+                ax25_packet = lithium_unwrap(rcv_packet)
+            else:
+                ax25_packet = kiss_unwrap(rcv_packet)
+        return ax25_packet
+
+    def transmit(self, ax25_packet):
+        if self.use_serial:
+            lithium_packet = lithium_wrap(ax25_packet)
+            self.tx_obj.write(lithium_packet)
+        else:
+            kiss_packet = kiss_wrap(ax25_packet)
+            self.tx_obj.send(kiss_packet)
 
 
 def pre_post(f):
@@ -46,26 +108,31 @@ def pre_post(f):
 
 
 class SppPacket:
-    ax25_header = array.array('B', [])
-    oa_key = b''
-    use_serial = True
-    tx_obj = 0
-    turnaround = 1000
-    q_display_packet = 0
-    ground_maxsize_packets = False
+    ax25_header = None
+    oa_key = None
+    radio = None
+    turnaround = None
+    q_display_packet = None
+    ground_maxsize_packets = None
     mac_digest_len = 16
+    spacecraft_key = None
+    ground_station_key = None
 
-    def __init__(self, packet_type, key, dynamic):
+    def __init__(self, packet_type, dynamic):
         if packet_type == 'TC':
             self.packet_type = 0x18
+            self.dynamic = dynamic
+            self.key = self.ground_station_key
         elif packet_type == 'TM':
             self.packet_type = 0x08
+            self.dynamic = dynamic
+            self.key = self.spacecraft_key
         elif packet_type == 'OA':
             self.packet_type = 0
+            self.dynamic = False
         else:
             self.packet_type = 0
-        self.key = key
-        self.dynamic = dynamic
+            self.dynamic = False
         self.is_spp_packet = False
         self.is_oa_packet = False
         self.packet_data_length = 0
@@ -120,12 +187,7 @@ class SppPacket:
 
     def transmit(self):
         time.sleep(float(self.turnaround) / 1000.0)
-        if self.use_serial:
-            lithium_packet = lithium_wrap(self.ax25_packet)
-            self.tx_obj.write(lithium_packet)
-        else:
-            kiss_packet = kiss_wrap(self.ax25_packet)
-            self.tx_obj.send(kiss_packet)
+        self.radio.transmit(self.ax25_packet)
         self.q_display_packet.put(self.ax25_packet)
 
     def __spp_wrap(self):
@@ -242,8 +304,8 @@ def mac_sign(packet, key):
     return(digest)
 
 
-def make_ack(packet_type, packets_to_ack, key):
-    packet = SppPacket(packet_type, key, dynamic=True)
+def make_ack(packet_type, packets_to_ack):
+    packet = SppPacket(packet_type, dynamic=True)
     spp_data = array.array('B', [0x05])
     if packet_type == 'TC':
         if len(packets_to_ack) > 0:
@@ -256,8 +318,8 @@ def make_ack(packet_type, packets_to_ack, key):
     return packet
 
 
-def make_nak(packet_type, packets_to_nak, key):
-    packet = SppPacket(packet_type, key, dynamic=True)
+def make_nak(packet_type, packets_to_nak):
+    packet = SppPacket(packet_type, dynamic=True)
     spp_data = array.array('B', [0x06])
     if packet_type == 'TC':
         if len(packets_to_nak) > 0:
@@ -270,34 +332,17 @@ def make_nak(packet_type, packets_to_nak, key):
     return packet
 
 
-def receive_packet(my_packet_type, rx_obj, use_serial, q_receive_packet, q_display_packet):
+def receive_packet(my_packet_type, radio, q_receive_packet, q_display_packet):
     while True:
-        if use_serial:
-            serial_buffer = rx_obj.read(8)
-            rcv_packet = array.array('B', [])
-            for s in serial_buffer:
-                rcv_packet.append(s)
-            serial_buffer = rx_obj.read(rcv_packet[5] + 2)
-            for s in serial_buffer:
-                rcv_packet.append(s)
-        else:
-            rcv_string = rx_obj.recv(1024)
-            rcv_packet = array.array('B', [])
-            for c in rcv_string:
-                rcv_packet.append(c)
-        if len(rcv_packet) >= 18:
-            if use_serial:
-                ax25_packet = lithium_unwrap(rcv_packet)
-            else:
-                ax25_packet = kiss_unwrap(rcv_packet)
-            if ax25_packet[16] != my_packet_type:
-                # if (random.random() <= 0.5) and (len(ax25_packet) >= 64) and (ax25_packet[16] == 0x08):
-                #     xor_idx = random.randrange(29, len(ax25_packet))
-                #     ax25_packet[xor_idx] = ax25_packet[xor_idx] ^ 0xFF
-                #     print('Simulated receive error, xor_idx, before/after', xor_idx, ax25_packet[xor_idx] ^ 0xFF,
-                #           ax25_packet[xor_idx])
-                q_receive_packet.put(ax25_packet)
-                q_display_packet.put(ax25_packet)
+        ax25_packet = radio.receive()
+        if ax25_packet[16] != my_packet_type:
+            # if (random.random() <= 0.5) and (len(ax25_packet) >= 64) and (ax25_packet[16] == 0x08):
+            #     xor_idx = random.randrange(29, len(ax25_packet))
+            #     ax25_packet[xor_idx] = ax25_packet[xor_idx] ^ 0xFF
+            #     print('Simulated receive error, xor_idx, before/after', xor_idx, ax25_packet[xor_idx] ^ 0xFF,
+            #           ax25_packet[xor_idx])
+            q_receive_packet.put(ax25_packet)
+            q_display_packet.put(ax25_packet)
 
 
 def init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid):
