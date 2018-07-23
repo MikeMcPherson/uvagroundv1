@@ -53,12 +53,12 @@ GUI Handlers
 class Handler:
 
     def on_destroy(self, *args):
-        global textview_buffer
-        global p_receive_packet
-        textview_buffer.insert(textview_buffer.get_end_iter(), "]\n}\n")
-        p_receive_packet.terminate()
-        save_file()
-        Gtk.main_quit()
+        do_save = True
+        do_destroy(do_save)
+
+    def on_quit_nosave(self, *args):
+        do_save = False
+        do_destroy(do_save)
 
     def on_command(self, button):
         button_label = button.get_label().replace('...', '')
@@ -151,7 +151,7 @@ def dialog1_run(title, labels, defaults, tooltips):
     global entry_objs
     global label_objs
     argwindow.set_title(title)
-    for i in range(6):
+    for i in range(9):
         label_objs[i].set_label(labels[i])
         entry_objs[i].set_text(defaults[i])
         label_objs[i].set_tooltip_text(tooltips[i])
@@ -165,8 +165,9 @@ def dialog1_run(title, labels, defaults, tooltips):
     argwindow.run()
     return [int(entry_objs[0].get_text(), 0), int(entry_objs[1].get_text(), 0),
             int(entry_objs[2].get_text(), 0), int(entry_objs[3].get_text(), 0),
-            int(entry_objs[4].get_text(), 0), int(entry_objs[5].get_text(), 0)]
-
+            int(entry_objs[4].get_text(), 0), int(entry_objs[5].get_text(), 0),
+            int(entry_objs[6].get_text(), 0), int(entry_objs[7].get_text(), 0),
+            int(entry_objs[8].get_text(), 0)]
 
 def dialog1_transmit():
     global argwindow
@@ -216,10 +217,10 @@ def on_command(button_label):
 
     elif button_label == 'RESET':
         title = '"RESET" Arguments'
-        labels = ['Reset mask', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']
+        labels = ['Reset mask', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        defaults = ['0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']
         tooltips = ['(16-bit) Bitmask indicating which spacecraft reset operations are to be performed.',
-                    'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+                    'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
@@ -240,11 +241,11 @@ def on_command(button_label):
 
     elif button_label == 'XMIT_HEALTH':
         title = '"XMIT_HEALTH" Arguments'
-        labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00']
+        labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = [
             '(8-bit) Number of Health Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
-            'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+            'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
@@ -257,11 +258,11 @@ def on_command(button_label):
 
     elif button_label == 'XMIT_SCIENCE':
         title = '"XMIT_SCIENCE" Arguments'
-        labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00']
+        labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = [
             '(8-bit) Number of Science Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
-            'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+            'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
@@ -274,11 +275,11 @@ def on_command(button_label):
 
     elif button_label == 'READ_MEM':
         title = '"READ_MEM" Arguments'
-        labels = ['Start address', 'End address', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0x00F0', '0x00F3', '0x0000', '0x0000', '0x0000', '0x0000']
+        labels = ['Start address', 'End address', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        defaults = ['0x00F0', '0x00F3', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']
         tooltips = ['(16-bit) Start of memory address range to downlink.',
                     '(16-bit) End of memory address range to downlink.',
-                    'N/A', 'N/A', 'N/A', 'N/A']
+                    'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
@@ -293,12 +294,12 @@ def on_command(button_label):
     elif button_label == 'WRITE_MEM':
         title = '"WRITE_MEM" Arguments'
         labels = ['Start address', 'End address',
-                  'Contents 0', 'Contents 1', 'Contents 2', 'Contents 3']
-        defaults = ['0x00F0', '0x00F3', '0x0000', '0x0000', '0x0000', '0x0000']
+                  'Contents 0', 'Contents 1', 'Contents 2', 'Contents 3', 'N/A', 'N/A', 'N/A']
+        defaults = ['0x00F0', '0x00F3', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000', '0x0000']
         tooltips = ['(16-bit) Start of memory address range to uplink.',
                     '(16-bit) End of memory address range to uplink.  (Limited to four memory locations for testing.)',
                     '(16-bit) Memory contents', '(16-bit) Memory contents',
-                    '(16-bit) Memory contents', '(16-bit) Memory contents']
+                    '(16-bit) Memory contents', '(16-bit) Memory contents', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
@@ -312,18 +313,21 @@ def on_command(button_label):
 
     elif button_label == 'SET_COMMS':
         title = '"SET_COMMS" Arguments'
-        labels = ['TM Window', 'XMIT Timeout', 'ACK Timeout', 'Sequence Window', 'Turnaround', 'N/A']
-        defaults = ['0x01', '0x04', '0x0A', '0x02', '0x012C', '0x0000']
-        tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit '
-                    + 'before waiting for an ACK.  Default: 0x01.',
-                    '(8-bit) Number of unacknowledged transmit windows before the spacecraft '
-                    + 'ceases transmission.  Default: 0x04.',
-                    '(8-bit) Number of seconds the spacecraft waits for an ACK or NAK '
-                    + 'before retransmitting the last window.  Default: 0x0A.',
-                    '(8-bit) Maximum allowable difference between the expected and received '
-                    + 'Sequence Number.  Default: 0x02.',
+        labels = ['TM Window', 'XMIT Timeout', 'ACK Timeout', 'Sequence Window', 'Spacecraft SN',
+                  'Ground SN', 'Turnaround', 'N/A', 'N/A']
+        defaults = ['0x01', '0x04', '0x0A', '0x02', '0x0001', '0x0001', '0x012C', '0x0000', '0x0000']
+        tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit ' +
+                    'before waiting for an ACK.  Default: 0x01.',
+                    '(8-bit) Number of unacknowledged transmit windows before the spacecraft ' +
+                    'ceases transmission.  Default: 0x04.',
+                    '(8-bit) Number of seconds the spacecraft waits for an ACK or NAK ' +
+                    'before retransmitting the last window.  Default: 0x0A.',
+                    '(8-bit) Maximum allowable difference between the expected and received ' +
+                    'Sequence Number.  Default: 0x02.',
+                    '(16-bit) Next packet from the spacecraft will have this sequence number',
+                    '(16-bit) Next packet from the ground station will have this sequence number',
                     '(16-bit) Minimum delay between transmit and receive packets.',
-                    'N/A']
+                    'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
@@ -332,8 +336,9 @@ def on_command(button_label):
             tc_data = array.array('B', [0x0B])
             for a in args[0:4]:
                 tc_data.append(a & 0x00FF)
-            tc_data.extend([0x00, 0x00, 0x00, 0x00])
             tc_data.extend(to_bigendian(args[4], 2))
+            tc_data.extend(to_bigendian(args[5], 2))
+            tc_data.extend(to_bigendian(args[6], 2))
             tc_packet.set_spp_data(tc_data)
             tc_packet.set_sequence_number(ground_sequence_number)
 
@@ -347,10 +352,10 @@ def on_command(button_label):
 
     elif button_label == 'SET_MODE':
         title = '"SET_MODE" Arguments'
-        labels = ['Mode', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0x01', '0x00', '0x00', '0x00', '0x00', '0x00']
+        labels = ['Mode', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        defaults = ['0x01', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = ['(8-bit) DOWNLINK=1, DATA_COLLECTION=2, LOW_POWER=3',
-                    'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+                    'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
@@ -470,6 +475,15 @@ def process_received():
 """
 Helpers
 """
+
+def do_destroy(do_save):
+    global textview_buffer
+    global p_receive_packet
+    textview_buffer.insert(textview_buffer.get_end_iter(), "]\n}\n")
+    p_receive_packet.terminate()
+    if do_save:
+        save_file()
+    Gtk.main_quit()
 
 
 def load_file():
@@ -969,7 +983,10 @@ def main():
         builder.get_object("entry4"),
         builder.get_object("entry5"),
         builder.get_object("entry6"),
-        builder.get_object("entry7")
+        builder.get_object("entry7"),
+        builder.get_object("entry8"),
+        builder.get_object("entry9"),
+        builder.get_object("entry10")
     ]
     label_objs = [
         builder.get_object("label4"),
@@ -977,7 +994,10 @@ def main():
         builder.get_object("label6"),
         builder.get_object("label7"),
         builder.get_object("label8"),
-        builder.get_object("label9")
+        builder.get_object("label9"),
+        builder.get_object("label16"),
+        builder.get_object("label17"),
+        builder.get_object("label18")
     ]
     label11 = builder.get_object("label11")
     combobox1 = builder.get_object("combobox1")

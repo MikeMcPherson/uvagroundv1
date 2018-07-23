@@ -163,7 +163,7 @@ def main():
         else:
             if tc_packet.validation_mask != 0:
                 tm_packet = make_nak([], spacecraft_key)
-                tm_packet.set_sequence_number = spacecraft_sequence_number
+                tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
                 break
@@ -191,7 +191,7 @@ def main():
             elif tc_packet.command == COMMAND_CEASE_XMIT:
                 print('Received CEASE_XMIT')
                 tm_packet = make_ack('TM', [], spacecraft_key)
-                tm_packet.set_sequence_number = spacecraft_sequence_number
+                tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
                 doing_health_payloads = False
@@ -200,28 +200,28 @@ def main():
             elif tc_packet.command == COMMAND_NOOP:
                 print('Received NOOP')
                 tm_packet = make_ack('TM', [], spacecraft_key)
-                tm_packet.set_sequence_number = spacecraft_sequence_number
+                tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
             elif tc_packet.command == COMMAND_RESET:
                 print('Received RESET')
                 tm_packet = make_ack('TM', [], spacecraft_key)
-                tm_packet.set_sequence_number = spacecraft_sequence_number
+                tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
             elif tc_packet.command == COMMAND_WRITE_MEM:
                 print('Received WRITE_MEM')
                 tm_packet = make_ack('TM', [], spacecraft_key)
-                tm_packet.set_sequence_number = spacecraft_sequence_number
+                tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
             elif tc_packet.command == COMMAND_SET_MODE:
                 print('Received SET_MODE')
                 tm_packet = make_ack('TM', [], spacecraft_key)
-                tm_packet.set_sequence_number = spacecraft_sequence_number
+                tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
@@ -235,7 +235,7 @@ def main():
                 expected_ground_sequence_number = from_bigendian(tc_packet.spp_data[7:9], 2)
                 turnaround = from_bigendian(tc_packet.spp_data[9:11], 2)
                 tm_packet = make_ack('TM', [], spacecraft_key)
-                tm_packet.set_sequence_number = spacecraft_sequence_number
+                tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
 
             # Commands requiring a response

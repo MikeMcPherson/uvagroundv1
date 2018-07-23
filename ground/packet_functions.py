@@ -193,7 +193,7 @@ class SppPacket:
 
 def sn_increment(sequence_number):
     sequence_number = sequence_number + 1
-    if sequence_number < 65535:
+    if sequence_number > 65535:
         sequence_number = 1
     return sequence_number
 
