@@ -465,7 +465,9 @@ def do_destroy(do_save):
     global gs_xcvr_uhd_pid
     textview_buffer.insert(textview_buffer.get_end_iter(), "]\n}\n")
     p_receive_packet.terminate()
-    gs_xcvr_uhd_pid.kill()
+    if gs_xcvr_uhd_pid is not None:
+        if gs_xcvr_uhd_pid.poll() is None:
+            gs_xcvr_uhd_pid.kill()
     if do_save:
         save_file()
     Gtk.main_quit()
@@ -874,7 +876,9 @@ def main():
         logging.basicConfig(filename='ground.log', level=logging.INFO, format='%(asctime)s %(message)s')
     logging.info('%s %s: Run started', program_name, program_version)
 
-    if not use_serial:
+    if use_serial:
+        gs_xcvr_uhd_pid = None
+    else:
         print('Please wait while the radio starts...')
         gs_xcvr_uhd_pid = subprocess.Popen([gs_xcvr_uhd])
         time.sleep(15.0)
