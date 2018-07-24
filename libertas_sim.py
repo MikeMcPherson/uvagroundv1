@@ -91,12 +91,13 @@ def main():
     debug = config['libertas_sim'].getboolean('debug')
     program_name = config['libertas_sim']['program_name']
     program_version = config['libertas_sim']['program_version']
-    use_serial = config['comms'].getboolean('use_serial')
     turnaround = int(config['comms']['turnaround'])
     spacecraft_key = config['comms']['spacecraft_key'].encode()
     ground_station_key = config['comms']['ground_station_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
+    use_serial = config['comms'].getboolean('use_serial')
+    kiss_over_serial = config['comms'].getboolean('kiss_over_serial')
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
@@ -129,12 +130,13 @@ def main():
     SppPacket.spacecraft_key = spacecraft_key
     SppPacket.ground_station_key = ground_station_key
 
-    RadioDevice.use_serial = use_serial
     RadioDevice.rx_server = rx_server
     RadioDevice.rx_port = rx_port
     RadioDevice.tx_server = tx_server
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
+    RadioDevice.use_serial = use_serial
+    RadioDevice.kiss_over_serial = kiss_over_serial
 
     radio = RadioDevice()
     radio.open()

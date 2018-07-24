@@ -37,6 +37,7 @@ from functools import wraps
 
 class RadioDevice:
     use_serial = None
+    kiss_over_serial = None
     rx_server = None
     rx_port = None
     rx_obj = None
@@ -79,20 +80,21 @@ class RadioDevice:
             rcv_packet = array.array('B', [])
             for c in rcv_string:
                 rcv_packet.append(c)
-        if len(rcv_packet) >= 18:
-            if self.use_serial:
-                ax25_packet = lithium_unwrap(rcv_packet)
-            else:
-                ax25_packet = kiss_unwrap(rcv_packet)
+        if self.use_serial:
+            ax25_packet = lithium_unwrap(rcv_packet)
+        else:
+            ax25_packet = kiss_unwrap(rcv_packet)
         return ax25_packet
 
     def transmit(self, ax25_packet):
         if self.use_serial:
-            lithium_packet = lithium_wrap(ax25_packet)
-            self.tx_obj.write(lithium_packet)
+            xmit_packet = lithium_wrap(ax25_packet)
         else:
-            kiss_packet = kiss_wrap(ax25_packet)
-            self.tx_obj.send(kiss_packet)
+            xmit_packet = kiss_wrap(ax25_packet)
+        if self.use_serial:
+            self.tx_obj.write(xmit_packet)
+        else:
+            self.tx_obj.send(xmit_packet)
 
 
 def pre_post(f):
@@ -421,9 +423,9 @@ FESC = 0xDB
 TFEND = 0xDC
 TFESC = 0xDD
 
-def kiss_wrap(packet):
+def kiss_wrap(ax25_packet):
     kiss_packet = array.array('B', [FEND, 0x00])
-    for p in packet:
+    for p in ax25_packet:
         if p == FEND:
             kiss_packet.append(FESC)
             kiss_packet.append(TFEND)
@@ -433,17 +435,23 @@ def kiss_wrap(packet):
         else:
             kiss_packet.append(p)
     kiss_packet.append(FEND)
-    return(kiss_packet)
+    return kiss_packet
 
 
 def kiss_unwrap(kiss_packet):
-    packet = array.array('B', [])
-    for idx, k in enumerate(kiss_packet[2:]):
-        if k == FEND:
-            pass
-        elif k == FESC:
-            if (kiss_packet[idx + 3] == TFEND) or (kiss_packet[idx + 3] == TFESC):
-                continue
+    ax25_packet = array.array('B', [])
+    fesc_found = False
+    for b in kiss_packet[2:-1]:
+        if fesc_found:
+            if b == TFESC:
+                ax25_packet.append(FESC)
+            elif b == TFEND:
+                ax25_packet.append(FEND)
+            else:
+                print('KISS error')
+            fesc_found = False
+        elif b == FESC:
+            fesc_found = True
         else:
-            packet.append(k)
-    return(packet)
+            ax25_packet.append(b)
+    return ax25_packet

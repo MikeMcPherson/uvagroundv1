@@ -42,7 +42,7 @@ import multiprocessing as mp
 import hexdump
 import random
 from ground.constant import COMMAND_CODES, COMMAND_NAMES
-from ground.packet_functions import SppPacket, RadioDevice
+from ground.packet_functions import SppPacket, RadioDevice, kiss_wrap, kiss_unwrap
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import init_ax25_header, sn_increment, sn_decrement
@@ -863,12 +863,13 @@ def main():
     program_name = config['general']['program_name']
     program_version = config['general']['program_version']
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
-    use_serial = config['comms'].getboolean('use_serial')
     turnaround = float(config['comms']['turnaround']) / 1000.0
     spacecraft_key = config['comms']['spacecraft_key'].encode()
     ground_station_key = config['comms']['ground_station_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
+    use_serial = config['comms'].getboolean('use_serial')
+    kiss_over_serial = config['comms'].getboolean('kiss_over_serial')
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
@@ -892,12 +893,13 @@ def main():
     SppPacket.spacecraft_key = spacecraft_key
     SppPacket.ground_station_key = ground_station_key
 
-    RadioDevice.use_serial = use_serial
     RadioDevice.rx_server = rx_server
     RadioDevice.rx_port = rx_port
     RadioDevice.tx_server = tx_server
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
+    RadioDevice.use_serial = use_serial
+    RadioDevice.kiss_over_serial = kiss_over_serial
 
     radio = RadioDevice()
     radio.open()
