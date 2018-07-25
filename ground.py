@@ -585,10 +585,11 @@ def display_packet():
                   '"gps_time":"<GPS_TIME>", ' +
                   '"sequence_number":"<SEQUENCE_NUMBER>",\n' +
                   '    "command":"<COMMAND>", ' +
+                  '"packet_data_length":"<PACKET_DATA_LENGTH>", ' +
                   '"<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
                   '    "<PACKET_TYPE>_data":[\n<SPP_DATA>    ],\n' +
-                  '    "mac_valid":"<MAC_VALID>",\n' +
-                  '    "mac_digest":[\n<MAC_DIGEST>    ],\n')
+                  '    "security_trailer_valid":"<MAC_VALID>",\n' +
+                  '    "security_trailer":[\n<MAC_DIGEST>    ],\n')
 
         tv_ax25 = ('    "ax25_destination":"<AX25_DESTINATION>", ' +
                    '"ax25_source":"<AX25_SOURCE>", ' +
@@ -635,6 +636,7 @@ def display_packet():
             tv_spp = tv_spp.replace('<SEQUENCE_NUMBER>', "{:05d}".format(dp_packet.sequence_number))
             tv_spp = tv_spp.replace('<COMMAND>', COMMAND_NAMES[dp_packet.command])
 
+            tv_spp = tv_spp.replace('<PACKET_DATA_LENGTH>', "{:d}".format(dp_packet.packet_data_length))
             tv_spp = tv_spp.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(dp_packet.spp_data)))
             packet_string = hex_tabulate(dp_packet.spp_data, values_per_row)
             tv_spp = tv_spp.replace('<SPP_DATA>', packet_string)
@@ -675,59 +677,42 @@ def payload_decode(command, payload_data, payload_number):
     science_payload_string = (
             '    "payload<PAYLOAD_NUMBER>":[\n'
             '        "payload_type":"SCIENCE",\n' +
-            '        "latitude":"<LATITUDE>",\n' +
-            '        "longitude":"<LONGITUDE>",\n' +
+            '        "gps_time":"<GPS_TIME>", "gps_week":"<GPS_WEEK>",\n' +
+            '        "x_pos":"<X_POS>", "y_pos":"<Y_POS>", "z_pos":"<Z_POS>",\n' +
+            '        "satellites_pvt":"<SATELLITES_PVT>", "pdop":"<PDOP>",\n' +
+            '        "x_vel":"<X_VEL>", "y_vel":"<Y_VEL>", "z_vel":"<Z_VEL>",\n' +
+            '        "latitude":"<LATITUDE>", "longitude":"<LONGITUDE>",\n' +
+            '        "fix_quality":"<FIX_QUALITY>", "satellites_tracked":"<SATELLITES_TRACKED>", "hdop":"<HDOP>",\n' +
             '        "altitude":"<ALTITUDE>",\n' +
-            '        "fix_quality":"<FIX_QUALITY>",\n' +
-            '        "satellites_tracked":"<SATELLITES_TRACKED>",\n' +
-            '        "hdop":"<HDOP>",\n' +
-            '        "gps_time":"<GPS_TIME>",\n' +
-            '        "gps_week":"<GPS_WEEK>",\n' +
-            '        "x_pos":"<X_POS>",\n' +
-            '        "y_pos":"<Y_POS>",\n' +
-            '        "z_pos":"<Z_POS>",\n' +
-            '        "x_vel":"<X_VEL>",\n' +
-            '        "y_vel":"<Y_VEL>",\n' +
-            '        "z_vel":"<Z_VEL>",\n' +
-            '        "pdop":"<PDOP>",\n' +
-            '        "satellites_pvt":"<SATELLITES_PVT>",\n' +
-            '        "mx":"<MX>",\n' +
-            '        "my":"<MY>",\n' +
-            '        "mz":"<MZ>",\n' +
-            '        "gx":"<GX>",\n' +
-            '        "gy":"<GY>",\n' +
-            '        "gz":"<GZ>",\n' +
-            '        "sun_sensor_vi":"<SUN_SENSOR_VI>",\n' +
-            '        "sun_sensor_i":"<SUN_SENSOR_I>",\n' +
-            '        "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
-            '        "sun_sensor_iii":"<SUN_SENSOR_III>",\n' +
-            '        "sun_sensor_iv":"<SUN_SENSOR_IV>",\n' +
-            '        "sun_sensor_v":"<SUN_SENSOR_V>"\n' +
+            '        "gx":"<GX>", "gy":"<GY>", "gz":"<GZ>",\n' +
+            '        "mx":"<MX>", "my":"<MY>", mz":"<MZ>",\n' +
+            '        "sun_sensor_vi":"<SUN_SENSOR_VI>", "sun_sensor_i":"<SUN_SENSOR_I>", "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
+            '        "sun_sensor_iii":"<SUN_SENSOR_III>", "sun_sensor_iv":"<SUN_SENSOR_IV>", "sun_sensor_v":"<SUN_SENSOR_V>"\n' +
             '    ],\n'
     )
     science_payload_fields = [
-            ['<LATITUDE>', 'LATLON'],
-            ['<LONGITUDE>', 'LATLON'],
-            ['<ALTITUDE>', 'UINT32'],
-            ['<FIX_QUALITY>', 'UINT8'],
-            ['<SATELLITES_TRACKED>', 'UINT8'],
-            ['<HDOP>', 'DOP'],
             ['<GPS_TIME>', 'GPSTIME'],
             ['<GPS_WEEK>', 'UINT16'],
             ['<X_POS>', 'UINT32'],
             ['<Y_POS>', 'UINT32'],
             ['<Z_POS>', 'UINT32'],
+            ['<SATELLITES_PVT>', 'UINT8'],
+            ['<PDOP>', 'DOP'],
             ['<X_VEL>', 'UINT16'],
             ['<Y_VEL>', 'UINT16'],
             ['<Z_VEL>', 'UINT16'],
-            ['<PDOP>', 'DOP'],
-            ['<SATELLITES_PVT>', 'UINT8'],
-            ['<MX>', 'UINT16'],
-            ['<MY>', 'UINT16'],
-            ['<MZ>', 'UINT16'],
+            ['<LATITUDE>', 'LATLON'],
+            ['<LONGITUDE>', 'LATLON'],
+            ['<FIX_QUALITY>', 'UINT8'],
+            ['<SATELLITES_TRACKED>', 'UINT8'],
+            ['<HDOP>', 'DOP'],
+            ['<ALTITUDE>', 'UINT32'],
             ['<GX>', 'UINT16'],
             ['<GY>', 'UINT16'],
             ['<GZ>', 'UINT16'],
+            ['<MX>', 'UINT16'],
+            ['<MY>', 'UINT16'],
+            ['<MZ>', 'UINT16'],
             ['<SUN_SENSOR_VI>', 'UINT16'],
             ['<SUN_SENSOR_I>', 'UINT16'],
             ['<SUN_SENSOR_II>', 'UINT16'],
