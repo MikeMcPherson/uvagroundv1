@@ -405,12 +405,13 @@ def process_received():
     global transmit_timeout_count
     global ack_timeout
     global sequence_number_window
+    global ignore_security_trailer_error
 
     while True:
         ax25_packet = q_receive_packet.get()
         tm_packet = SppPacket('TM', dynamic=False)
         tm_packet.parse_ax25(ax25_packet)
-        if tm_packet.validation_mask != 0:
+        if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
             tc_packet = make_nak('TC', [])
             tc_packet.transmit()
             ground_sequence_number = sn_increment(ground_sequence_number)
@@ -807,6 +808,7 @@ def main():
     global first_packet
     global tc_packets_waiting_ack
     global gs_xcvr_uhd_pid
+    global ignore_security_trailer_error
 
     serial_device_name = 'pty_libertas'
     buffer_saved = False
@@ -855,6 +857,7 @@ def main():
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
     kiss_over_serial = config['comms'].getboolean('kiss_over_serial')
+    ignore_security_trailer_error = config['comms'].getboolean('ignore_security_trailer_error')
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
