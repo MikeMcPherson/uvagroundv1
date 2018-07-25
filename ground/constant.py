@@ -12,6 +12,7 @@ COMMAND_NAMES = {
     0x0B: 'SET_COMMS',
     0x0C: 'GET_COMMS',
     0x0A: 'SET_MODE',
+    0x0E: 'MAC_TEST',
     0x31: 'PING_RETURN',
     0x33: 'RADIO_RESET',
     0x34: 'PIN_TOGGLE'

@@ -58,6 +58,7 @@ def main():
     COMMAND_SET_COMMS = 0x0B
     COMMAND_GET_COMMS = 0x0C
     COMMAND_SET_MODE = 0x0A
+    COMMAND_MAC_TEST = 0x0E
 
     my_packet_type = 0x08
     serial_device_name = 'pty_ground'
@@ -264,7 +265,7 @@ def main():
                 print('Received READ_MEM')
                 tm_packet = SppPacket('TM', dynamic=True)
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
-                tm_data = array.array('B', [0x01])
+                tm_data = array.array('B', [0x08])
                 for d in tc_packet.spp_data[1:5]:
                     tm_data.append(d)
                 number_of_locations = ((from_bigendian(tc_packet.spp_data[3:5], 2) -
@@ -281,7 +282,7 @@ def main():
                 print('Received GET_COMMS')
                 tm_packet = SppPacket('TM', dynamic=True)
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
-                tm_data = array.array('B', [0x01])
+                tm_data = array.array('B', [0x0C])
                 tm_data.append(tm_packet_window & 0xFF)
                 tm_data.append(transmit_timeout_count & 0xFF)
                 tm_data.append(ack_timeout & 0xFF)
@@ -293,6 +294,20 @@ def main():
                 tm_packet.transmit()
                 tm_packets_waiting_ack.append(tm_packet)
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
+
+            elif tc_packet.command == COMMAND_MAC_TEST:
+                print('Received MAC_TEST')
+                for i in range(208):
+                    tm_packet = SppPacket('TM', dynamic=True)
+                    tm_packet.set_sequence_number(spacecraft_sequence_number)
+                    tm_data = array.array('B', [0x0E])
+                    temp_data = array.array('B', [])
+                    for j in range(i):
+                        temp_data.append(j + 2)
+                    tm_data.extend(temp_data)
+                    tm_packet.set_spp_data(tm_data)
+                    tm_packet.transmit()
+                    spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
             # Commands Health and Science packets
 

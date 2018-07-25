@@ -351,6 +351,14 @@ def process_command(button_label):
             tc_packet.set_spp_data(tc_data)
             tc_packet.set_sequence_number(ground_sequence_number)
 
+    elif button_label == 'MAC_TEST':
+        tc_data = array.array('B', [0x0E])
+        tc_packet.set_spp_data(tc_data)
+        tc_packet.set_sequence_number(ground_sequence_number)
+        do_transmit_packet = True
+        do_sn_increment = True
+        expect_ack = True
+
     elif button_label == 'PING_RETURN':
         tc_packet = SppPacket('OA', dynamic=True)
         tc_packet.set_oa_command(0x31)
@@ -446,6 +454,8 @@ def process_received():
             turnaround = from_bigendian(tm_packet.spp_data[9:11], 2)
             SppPacket.turnaround = turnaround
             do_transmit_packet = True
+        elif command == COMMAND_CODES['MAC_TEST']:
+            do_transmit_packet = False
         else:
             pass
 
