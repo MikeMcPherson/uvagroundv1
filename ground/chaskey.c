@@ -16,8 +16,10 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+/*
 #include <__cross_studio_io.h>
 #include "MSP430.h"
+*/
 
 #define ROTL(x,b) (uint32_t)( ((x) >> (32 - (b))) | ( (x) << (b)) )
 
@@ -134,8 +136,10 @@ void chaskey_Encrypt(void) {
   message[i] = i;
 
   chaskey(tag, taglen, message, i, k, k1, k2);
+  }
+}
 
-
+/*
 // Print Stuff no need to read past this unless we have a print problem
 
   debug_printf("%d -   ", i);
@@ -190,4 +194,4 @@ void main(void){
     chaskey_Encrypt();
     while(1);
 
-}
+}*/

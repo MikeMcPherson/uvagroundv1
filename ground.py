@@ -147,7 +147,7 @@ def dialog1_run(title, labels, defaults, tooltips):
         else:
             label_objs[i].set_visible(True)
             entry_objs[i].set_visible(True)
-    response = argwindow.run()
+    argwindow.run()
     return [int(entry_objs[0].get_text(), 0), int(entry_objs[1].get_text(), 0),
             int(entry_objs[2].get_text(), 0), int(entry_objs[3].get_text(), 0),
             int(entry_objs[4].get_text(), 0), int(entry_objs[5].get_text(), 0),
@@ -175,9 +175,9 @@ Ground Commands
 
 def process_command(button_label):
     global ground_sequence_number
-    global ground_station_key
     global dialog1_xmit
-    global tc_packets_waiting_ack
+    global tc_packets_waiting_for_ack
+    global downlink_payloads_pending
 
     do_transmit_packet = False
     do_sn_increment = False
@@ -227,7 +227,7 @@ def process_command(button_label):
     elif button_label == 'XMIT_HEALTH':
         title = '"XMIT_HEALTH" Arguments'
         labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
+        defaults = ['10', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = [
             '(8-bit) Number of Health Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
             'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
@@ -236,15 +236,16 @@ def process_command(button_label):
             do_transmit_packet = True
             do_sn_increment = True
             expect_ack = True
+            downlink_payloads_pending = args[0]
             tc_data = array.array('B', [0x02])
-            tc_data.append(args[0] & 0x00FF)
+            tc_data.append(downlink_payloads_pending)
             tc_packet.set_spp_data(tc_data)
             tc_packet.set_sequence_number(ground_sequence_number)
 
     elif button_label == 'XMIT_SCIENCE':
         title = '"XMIT_SCIENCE" Arguments'
         labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0xFF', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
+        defaults = ['10', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = [
             '(8-bit) Number of Science Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
             'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
@@ -253,8 +254,9 @@ def process_command(button_label):
             do_transmit_packet = True
             do_sn_increment = True
             expect_ack = True
+            downlink_payloads_pending = args[0]
             tc_data = array.array('B', [0x03])
-            tc_data.append(args[0] & 0x00FF)
+            tc_data.append(downlink_payloads_pending)
             tc_packet.set_spp_data(tc_data)
             tc_packet.set_sequence_number(ground_sequence_number)
 
@@ -300,9 +302,9 @@ def process_command(button_label):
         title = '"SET_COMMS" Arguments'
         labels = ['TM Window', 'XMIT Timeout', 'ACK Timeout', 'Sequence Window', 'Spacecraft SN',
                   'Ground SN', 'Turnaround', 'N/A', 'N/A']
-        defaults = ['0x01', '0x04', '0x0A', '0x02', '0x0001', '0x0001', '0x012C', '0x0000', '0x0000']
+        defaults = ['1', '4', '10', '2', '1', '1', '1000', '0x0000', '0x0000']
         tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit ' +
-                    'before waiting for an ACK.  Default: 0x01.',
+                    'before waiting for an ACK.  Default: 0x01. Maximum: 0x14',
                     '(8-bit) Number of unacknowledged transmit windows before the spacecraft ' +
                     'ceases transmission.  Default: 0x04.',
                     '(8-bit) Number of seconds the spacecraft waits for an ACK or NAK ' +
@@ -319,7 +321,10 @@ def process_command(button_label):
             do_sn_increment = True
             expect_ack = True
             tc_data = array.array('B', [0x0B])
-            for a in args[0:4]:
+            tm_packet_window = max(1, min(args[0], 20))
+            tc_data.append(tm_packet_window)
+            SppPacket.tm_packet_window = tm_packet_window
+            for a in args[1:4]:
                 tc_data.append(a & 0x00FF)
             tc_data.extend(to_bigendian(args[4], 2))
             tc_data.extend(to_bigendian(args[5], 2))
@@ -338,8 +343,8 @@ def process_command(button_label):
     elif button_label == 'SET_MODE':
         title = '"SET_MODE" Arguments'
         labels = ['Mode', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['0x01', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
-        tooltips = ['(8-bit) DOWNLINK=1, DATA_COLLECTION=2, LOW_POWER=3',
+        defaults = ['2', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
+        tooltips = ['(8-bit) DATA_COLLECTION=2, LOW_POWER=3',
                     'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
@@ -391,7 +396,7 @@ def process_command(button_label):
     if do_sn_increment:
         ground_sequence_number = sn_increment(ground_sequence_number)
     if expect_ack:
-        tc_packets_waiting_ack.append(tc_packet)
+        tc_packets_waiting_for_ack.append(tc_packet)
 
 
 """
@@ -404,50 +409,70 @@ def process_received():
     global spacecraft_key
     global ground_station_key
     global ground_sequence_number
-    global tc_packets_waiting_ack
+    global tc_packets_waiting_for_ack
     global q_receive_packet
     global q_display_packet
-    global health_payloads_pending
-    global science_payloads_pending
-    global tm_packet_window
+    global health_payloads_available
+    global science_payloads_available
+    global downlink_payloads_pending
     global transmit_timeout_count
     global ack_timeout
     global sequence_number_window
     global ignore_security_trailer_error
+    global tm_packets_to_ack
+    global tm_packets_to_nak
+    global health_payloads_per_packet
+    global science_payloads_per_packet
 
     while True:
         ax25_packet = q_receive_packet.get()
         tm_packet = SppPacket('TM', dynamic=False)
         tm_packet.parse_ax25(ax25_packet)
         if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
-            tc_packet = make_nak('TC', [])
-            tc_packet.transmit()
-            ground_sequence_number = sn_increment(ground_sequence_number)
-            break
-        expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
+            packet_valid = False
+            tm_packets_to_nak.append(tm_packet)
+        else:
+            packet_valid = True
+            tm_packets_to_ack.append(tm_packet)
 
         do_transmit_packet = False
-
+        downlink_complete = False
         command = tm_packet.command
         if command == COMMAND_CODES['ACK']:
-            tc_packets_waiting_ack = []
+            tc_packets_waiting_for_ack = []
             do_transmit_packet = False
         elif command == COMMAND_CODES['NAK']:
-            for p in tc_packets_waiting_ack:
+            for p in tc_packets_waiting_for_ack:
                 p.transmit()
             do_transmit_packet = False
         elif command == COMMAND_CODES['XMIT_COUNT']:
-            health_payloads_pending = from_bigendian(tm_packet.spp_data[1:3], 2)
-            science_payloads_pending = from_bigendian(tm_packet.spp_data[3:5], 2)
+            health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
+            science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
             do_transmit_packet = True
         elif command == COMMAND_CODES['XMIT_HEALTH']:
+            if packet_valid:
+                if tm_packet.spp_data[1] > 0:
+                    downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
+                    health_payloads_available = health_payloads_available - health_payloads_per_packet
+                else:
+                    downlink_payloads_pending = 0
+                if downlink_payloads_pending <= 0:
+                    downlink_complete = True
             do_transmit_packet = True
         elif command == COMMAND_CODES['XMIT_SCIENCE']:
+            if packet_valid:
+                if tm_packet.spp_data[1] > 0:
+                    downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
+                    science_payloads_available = science_payloads_available - science_payloads_per_packet
+                else:
+                    downlink_payloads_pending = 0
+                if downlink_payloads_pending <= 0:
+                    downlink_complete = True
             do_transmit_packet = True
         elif command == COMMAND_CODES['READ_MEM']:
             do_transmit_packet = True
         elif command == COMMAND_CODES['GET_COMMS']:
-            tm_packet_window = tm_packet.spp_data[1]
+            SppPacket.tm_packet_window = tm_packet.spp_data[1]
             transmit_timeout_count = tm_packet.spp_data[2]
             ack_timeout = tm_packet.spp_data[3]
             sequence_number_window = tm_packet.spp_data[4]
@@ -460,10 +485,21 @@ def process_received():
             pass
 
         if do_transmit_packet:
-            tc_packet = make_ack('TC', [])
-            tc_packet.transmit()
-            ground_sequence_number = sn_increment(ground_sequence_number)
-            tc_packets_waiting_ack = []
+            if (((len(tm_packets_to_ack) + len(tm_packets_to_nak)) >= SppPacket.tm_packet_window) or downlink_complete):
+                if len(tm_packets_to_nak) > 0:
+                    tc_packet = make_nak('TC', tm_packets_to_nak)
+                    tc_packet.set_sequence_number(ground_sequence_number)
+                    tc_packet.transmit()
+                    ground_sequence_number = sn_increment(ground_sequence_number)
+                    expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
+                else:
+                    tc_packet = make_ack('TC', [])
+                    tc_packet.set_sequence_number(ground_sequence_number)
+                    tc_packet.transmit()
+                    ground_sequence_number = sn_increment(ground_sequence_number)
+                    expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
+                tm_packets_to_ack = []
+                tm_packets_to_nak = []
 
 
 """
@@ -529,6 +565,7 @@ def save_file_as():
     filechooserwindow.run()
     if filedialog_save:
         buffer_filename = filechooserwindow.get_filename()
+        print(buffer_filename)
         write_buffer(buffer_filename)
     buffer_saved = True
 
@@ -804,21 +841,23 @@ def main():
     global expected_spacecraft_sequence_number
     global health_payload_length
     global health_payloads_per_packet
-    global health_payloads_pending
+    global health_payloads_available
     global doing_health_payloads
     global science_payload_length
     global science_payloads_per_packet
-    global science_payloads_pending
+    global science_payloads_available
+    global downlink_payloads_pending
     global doing_science_payloads
-    global tm_packet_window
     global transmit_timeout_count
     global ack_timeout
     global sequence_number_window
     global last_tc_packet
     global first_packet
-    global tc_packets_waiting_ack
+    global tc_packets_waiting_for_ack
     global gs_xcvr_uhd_pid
     global ignore_security_trailer_error
+    global tm_packets_to_ack
+    global tm_packets_to_nak
 
     serial_device_name = 'pty_libertas'
     buffer_saved = False
@@ -840,11 +879,12 @@ def main():
     spacecraft_sequence_numbers = []
     health_payload_length = 46
     health_payloads_per_packet = 4
-    health_payloads_pending = 1
+    health_payloads_available = 1
     doing_health_payloads = False
     science_payload_length = 83
     science_payloads_per_packet = 2
-    science_payloads_pending = 1
+    science_payloads_available = 1
+    downlink_payloads_pending = 0
     doing_science_payloads = False
     tm_packet_window = 1
     transmit_timeout_count = 4
@@ -852,7 +892,9 @@ def main():
     sequence_number_window = 2
     last_tc_packet = array.array('B', [])
     baudrates = [9600, 19200, 38400, 76800, 115200]
-    tc_packets_waiting_ack = []
+    tc_packets_waiting_for_ack = []
+    tm_packets_to_ack = []
+    tm_packets_to_nak = []
 
     config = configparser.ConfigParser()
     config.read(['ground.ini'])
@@ -860,7 +902,7 @@ def main():
     program_name = config['general']['program_name']
     program_version = config['general']['program_version']
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
-    turnaround = float(config['comms']['turnaround']) / 1000.0
+    turnaround = float(config['comms']['turnaround'])
     spacecraft_key = config['comms']['spacecraft_key'].encode()
     ground_station_key = config['comms']['ground_station_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
@@ -886,6 +928,7 @@ def main():
     SppPacket.ax25_header = ax25_header
     SppPacket.oa_key = oa_key
     SppPacket.use_serial = use_serial
+    SppPacket.tm_packet_window = tm_packet_window
     SppPacket.turnaround = turnaround
     SppPacket.ground_maxsize_packets = ground_maxsize_packets
     SppPacket.spacecraft_key = spacecraft_key

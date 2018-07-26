@@ -67,9 +67,11 @@ def main():
     expected_ground_sequence_number = 0
     health_payload_length = 46
     health_payloads_per_packet = 4
+    downlink_health_payloads = 0
     doing_health_payloads = False
     science_payload_length = 83
     science_payloads_per_packet = 2
+    downlink_science_payloads = 0
     doing_science_payloads = False
     doing_retransmit = False
     tm_packet_window = 1
@@ -77,8 +79,8 @@ def main():
     ack_timeout = 10
     sequence_number_window = 2
     tm_packets_waiting_ack = []
-    rx_server = 'gs-s-2.w4uva.org'
-    tx_server = rx_server
+    rx_server = 'gsss2.w4uva.org'
+    tx_server = 'gsss2.w4uva.org'
     rx_port = 9501
     tx_port = 9500
     dst_callsign = 'W4UVA '
@@ -178,10 +180,7 @@ def main():
 
             if tc_packet.command == COMMAND_ACK:
                 print('Received ACK')
-                if tc_packet.spp_data[1] == 0:
-                    tm_packets_waiting_ack.clear()
-                else:
-                    tm_packets_waiting_ack.clear()
+                tm_packets_waiting_ack.clear()
                 doing_retransmit = False
 
             elif tc_packet.command == COMMAND_NAK:
@@ -313,19 +312,13 @@ def main():
 
             elif tc_packet.command == COMMAND_XMIT_HEALTH:
                 print('Received XMIT_HEALTH')
-                downlink_health_payloads = tc_packet.spp_data[1]
-                if health_payloads_pending > 0:
-                    doing_health_payloads = True
-                else:
-                    doing_health_payloads = False
+                downlink_health_payloads = min(tc_packet.spp_data[1], health_payloads_pending)
+                doing_health_payloads = True
 
             elif tc_packet.command == COMMAND_XMIT_SCIENCE:
                 print('Received XMIT_SCIENCE')
-                downlink_science_payloads = tc_packet.spp_data[1]
-                if science_payloads_pending > 0:
-                    doing_science_payloads = True
-                else:
-                    doing_science_payloads = False
+                downlink_science_payloads = min(tc_packet.spp_data[1], science_payloads_pending)
+                doing_science_payloads = True
 
             else:
                 print('Unknown tc_packet.command received')
@@ -334,47 +327,63 @@ def main():
 
             if not doing_retransmit:
                 if doing_health_payloads:
-                    if health_payloads_pending > 0:
+                    for reps in range(tm_packet_window):
                         doing_health_payloads = False
                         tm_packet = SppPacket('TM', dynamic=True)
                         spp_data = array.array('B', [0x02])
-                        payloads_this_packet = min(health_payloads_pending, health_payloads_per_packet)
-                        spp_data.append(payloads_this_packet)
-                        for i in range(payloads_this_packet):
-                            health_payload = q_health_payloads.get()
-                            for h in health_payload:
-                                spp_data.append(h)
-                        for i in range(payloads_this_packet, health_payloads_per_packet):
-                            spp_data.extend([0x00] * health_payload_length)
+                        if downlink_health_payloads > 0:
+                            payloads_this_packet = min(downlink_health_payloads, health_payloads_per_packet)
+                            spp_data.append(payloads_this_packet)
+                            for i in range(payloads_this_packet):
+                                health_payload = q_health_payloads.get()
+                                for h in health_payload:
+                                    spp_data.append(h)
+                            for i in range(payloads_this_packet, health_payloads_per_packet):
+                                spp_data.extend([0x00] * health_payload_length)
+                            health_payloads_pending = max((health_payloads_pending - payloads_this_packet), 0)
+                            downlink_health_payloads = max((downlink_health_payloads - payloads_this_packet), 0)
+                            if downlink_health_payloads > 0:
+                                doing_health_payloads = True
+                        else:
+                            spp_data.append(0x00)
+                            doing_health_payloads = False
                         tm_packet.set_sequence_number(spacecraft_sequence_number)
                         tm_packet.set_spp_data(spp_data)
                         tm_packet.transmit()
+                        print('Sent XMIT_HEALTH')
                         tm_packets_waiting_ack.append(tm_packet)
                         spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
-                        health_payloads_pending = max((health_payloads_pending - payloads_this_packet), 0)
-                        if health_payloads_pending > 0:
-                            doing_health_payloads = True
+                        if not doing_health_payloads:
+                            break
                 elif doing_science_payloads:
-                    if science_payloads_pending > 0:
+                    for reps in range(tm_packet_window):
                         doing_science_payloads = False
                         tm_packet = SppPacket('TM', dynamic=True)
                         spp_data = array.array('B', [0x03])
-                        payloads_this_packet = min(science_payloads_pending, science_payloads_per_packet)
-                        spp_data.append(payloads_this_packet)
-                        for i in range(payloads_this_packet):
-                            science_payload = q_science_payloads.get()
-                            for s in science_payload:
-                                spp_data.append(s)
-                        for i in range(payloads_this_packet, science_payloads_per_packet):
-                            spp_data.extend([0x00] * science_payload_length)
+                        if downlink_science_payloads > 0:
+                            payloads_this_packet = min(downlink_science_payloads, science_payloads_per_packet)
+                            spp_data.append(payloads_this_packet)
+                            for i in range(payloads_this_packet):
+                                science_payload = q_science_payloads.get()
+                                for s in science_payload:
+                                    spp_data.append(s)
+                            for i in range(payloads_this_packet, science_payloads_per_packet):
+                                spp_data.extend([0x00] * science_payload_length)
+                            science_payloads_pending = max((science_payloads_pending - payloads_this_packet), 0)
+                            downlink_science_payloads = max((downlink_science_payloads - payloads_this_packet), 0)
+                            if downlink_science_payloads > 0:
+                                doing_science_payloads = True
+                        else:
+                            spp_data.append(0x00)
+                            doing_science_payloads = False
                         tm_packet.set_sequence_number(spacecraft_sequence_number)
                         tm_packet.set_spp_data(spp_data)
                         tm_packet.transmit()
+                        print('Sent XMIT_SCIENCE')
                         tm_packets_waiting_ack.append(tm_packet)
                         spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
-                        science_payloads_pending = max((science_payloads_pending - payloads_this_packet), 0)
-                        if science_payloads_pending > 0:
-                            doing_science_payloads = True
+                        if not doing_science_payloads:
+                            break
                 else:
                     pass
 

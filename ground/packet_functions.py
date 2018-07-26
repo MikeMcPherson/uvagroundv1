@@ -51,10 +51,13 @@ class RadioDevice:
             self.rx_obj = serial.Serial(self.serial_device_name, baudrate=9600)
             self.tx_obj = self.rx_obj
         else:
+            rx_addr = (self.rx_server, self.rx_port)
+            tx_addr = (self.tx_server, self.tx_port)
+            print(rx_addr, tx_addr)
             self.rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.rx_obj.connect((self.rx_server, self.rx_port))
+            self.rx_obj.connect(rx_addr)
             self.tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.tx_obj.connect((self.tx_server, self.tx_port))
+            self.tx_obj.connect(tx_addr)
 
     def close(self):
         try:
@@ -119,6 +122,7 @@ class SppPacket:
     mac_digest_len = 16
     spacecraft_key = None
     ground_station_key = None
+    tm_packet_window = None
 
     def __init__(self, packet_type, dynamic):
         if packet_type == 'TC':
@@ -248,6 +252,8 @@ class SppPacket:
 
     def __validate_packet(self):
         mac_scope = self.spp_packet[13:-self.mac_digest_len]
+        # print('mac_scope')
+        # hexdump.hexdump(mac_scope)
         validation_digest = mac_sign(mac_scope, self.key)
         self.validation_mask = 0b00000000
         for idx, v in enumerate(self.mac_digest):
@@ -309,13 +315,6 @@ def mac_sign(packet, key):
 def make_ack(packet_type, packets_to_ack):
     packet = SppPacket(packet_type, dynamic=True)
     spp_data = array.array('B', [0x05])
-    if packet_type == 'TC':
-        if len(packets_to_ack) > 0:
-            spp_data.append(len(packets_to_ack))
-            for p in packets_to_ack:
-                spp_data.extend(to_bigendian(p.sequence_number, 2))
-        else:
-            spp_data.append(0x00)
     packet.set_spp_data(spp_data)
     return packet
 
