@@ -555,16 +555,15 @@ def save_file():
 
 
 def save_file_as():
-    global filechooserwindow
     global filedialog_save
     global buffer_saved
     global buffer_filename
     time_utc = time.gmtime()
     time_string = time.strftime("ground%Y%m%d%H%M%S.json", time_utc)
-    filechooserwindow.set_current_name(time_string)
-    filechooserwindow.run()
+    Handler.filechooserwindow.set_current_name(time_string)
+    Handler.filechooserwindow.run()
     if filedialog_save:
-        buffer_filename = filechooserwindow.get_filename()
+        buffer_filename = Handler.filechooserwindow.get_filename()
         print(buffer_filename)
         write_buffer(buffer_filename)
     buffer_saved = True
@@ -823,12 +822,12 @@ def main():
     global textview_buffer
     global textview2_buffer
     global argwindow
-    global filechooserwindow
     global filechooser2window
     global combobox1
     global radiobutton1
     global radiobutton2
     global buffer_saved
+    global buffer_filename
     global filedialog_save
     global entry_objs
     global label_objs
@@ -874,6 +873,7 @@ def main():
 
     my_packet_type = 0x18
     spp_header_len = 15
+    buffer_filename = ''
     ground_sequence_number = 1
     expected_spacecraft_sequence_number = 0
     spacecraft_sequence_numbers = []
