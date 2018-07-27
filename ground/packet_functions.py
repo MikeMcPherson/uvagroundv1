@@ -53,7 +53,6 @@ class RadioDevice:
         else:
             rx_addr = (self.rx_server, self.rx_port)
             tx_addr = (self.tx_server, self.tx_port)
-            print(rx_addr, tx_addr)
             self.rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.rx_obj.connect(rx_addr)
             self.tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -252,8 +251,6 @@ class SppPacket:
 
     def __validate_packet(self):
         mac_scope = self.spp_packet[13:-self.mac_digest_len]
-        # print('mac_scope')
-        # hexdump.hexdump(mac_scope)
         validation_digest = mac_sign(mac_scope, self.key)
         self.validation_mask = 0b00000000
         for idx, v in enumerate(self.mac_digest):
