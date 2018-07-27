@@ -45,6 +45,7 @@ class RadioDevice:
     tx_port = None
     tx_obj = None
     serial_device_name = None
+    uplink_simulated_error_rate = 0
 
     def open(self):
         if self.use_serial:
@@ -122,6 +123,8 @@ class SppPacket:
     spacecraft_key = None
     ground_station_key = None
     tm_packet_window = None
+    mac_scope = None
+    validation_digest = None
 
     def __init__(self, packet_type, dynamic):
         if packet_type == 'TC':
@@ -250,11 +253,11 @@ class SppPacket:
                 self.is_spp_packet = False
 
     def __validate_packet(self):
-        mac_scope = self.spp_packet[13:-self.mac_digest_len]
-        validation_digest = mac_sign(mac_scope, self.key)
+        self.mac_scope = self.spp_packet[13:-self.mac_digest_len]
+        self.validation_digest = mac_sign(self.mac_scope, self.key)
         self.validation_mask = 0b00000000
         for idx, v in enumerate(self.mac_digest):
-            if v != validation_digest[idx]:
+            if v != self.validation_digest[idx]:
                 self.validation_mask = self.validation_mask | 0b00000001
 
 

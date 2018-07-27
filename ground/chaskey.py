@@ -115,10 +115,6 @@ def _chaskeypermute(st):
 
 class chaskey:
     def __init__(self, k, tlen=8, msg=b''):
-        print('Chaskey key')
-        hexdump.hexdump(key)
-        print('Chaskey msg')
-        hexdump.hexdump(msg)
         assert(tlen <= 16)
         self.key, self.key1, self.key2 = _keygen(k) #subkeys can be precomputed for speedup
         self.st = self.key
