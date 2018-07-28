@@ -57,7 +57,6 @@ class Handler:
     filechooserwindow = None
     filedialog_save = None
     filechooser2window = None
-    baudrates = None
     label11 = None
     radio = None
 
@@ -108,20 +107,11 @@ class Handler:
     def on_clear(self, button):
         script_clear()
 
-    def on_use_output(self, button):
-        self.radio.close()
-        use_serial = button.get_active()
-        RadioDevice.use_serial = use_serial
-        self.radio.open()
-
     def on_filechooserdialog2_cancel(self, button):
         self.filechooser2window.hide()
 
     def on_filechooserdialog2_open(self, button):
         self.filechooser2window.hide()
-
-    def on_combobox1_changed(self, button):
-        self.radio.set_baudrate = self.baudrates[button.get_active()]
 
     def validate_entry_uint16(self, entry):
         try:
@@ -178,6 +168,8 @@ def process_command(button_label):
     global dialog1_xmit
     global tc_packets_waiting_for_ack
     global downlink_payloads_pending
+    global health_payloads_per_packet
+    global science_payloads_per_packet
 
     do_transmit_packet = False
     do_sn_increment = False
@@ -226,37 +218,37 @@ def process_command(button_label):
 
     elif button_label == 'XMIT_HEALTH':
         title = '"XMIT_HEALTH" Arguments'
-        labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        labels = ['# Packets', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         defaults = ['10', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = [
-            '(8-bit) Number of Health Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
+            '(8-bit) Number of Health Packets to be downlinked.  0xFF means DUMP all outstanding payloads.',
             'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
             do_sn_increment = True
             expect_ack = True
-            downlink_payloads_pending = args[0]
+            downlink_payloads_pending = args[0] * health_payloads_per_packet
             tc_data = array.array('B', [0x02])
-            tc_data.append(downlink_payloads_pending)
+            tc_data.append(args[0])
             tc_packet.set_spp_data(tc_data)
             tc_packet.set_sequence_number(ground_sequence_number)
 
     elif button_label == 'XMIT_SCIENCE':
         title = '"XMIT_SCIENCE" Arguments'
-        labels = ['# Payloads', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        labels = ['# Packets', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         defaults = ['10', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = [
-            '(8-bit) Number of Science Payloads to be downlinked.  0xFF means downlink all outstanding payloads.',
+            '(8-bit) Number of Science Packets to be downlinked.  0xFF means DUMP all outstanding payloads.',
             'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
             do_sn_increment = True
             expect_ack = True
-            downlink_payloads_pending = args[0]
+            downlink_payloads_pending = args[0] * science_payloads_per_packet
             tc_data = array.array('B', [0x03])
-            tc_data.append(downlink_payloads_pending)
+            tc_data.append(args[0])
             tc_packet.set_spp_data(tc_data)
             tc_packet.set_sequence_number(ground_sequence_number)
 
@@ -300,9 +292,9 @@ def process_command(button_label):
 
     elif button_label == 'SET_COMMS':
         title = '"SET_COMMS" Arguments'
-        labels = ['TM Window', 'XMIT Timeout', 'ACK Timeout', 'Sequence Window', 'Spacecraft SN',
+        labels = ['TM Window', 'XMIT Max Retries', 'ACK Timeout', 'Sequence Window', 'Spacecraft SN',
                   'Ground SN', 'Turnaround', 'N/A', 'N/A']
-        defaults = ['1', '4', '10', '2', '1', '1', '1000', '0x0000', '0x0000']
+        defaults = ['1', '4', '10', '2', '0', '0', '1000', '0x0000', '0x0000']
         tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit ' +
                     'before waiting for an ACK.  Default: 0x01. Maximum: 0x14',
                     '(8-bit) Number of unacknowledged transmit windows before the spacecraft ' +
@@ -428,64 +420,58 @@ def process_received():
         ax25_packet = q_receive_packet.get()
         tm_packet = SppPacket('TM', dynamic=False)
         tm_packet.parse_ax25(ax25_packet)
-        if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
-            packet_valid = False
-            tm_packets_to_nak.append(tm_packet)
-        else:
-            packet_valid = True
-            tm_packets_to_ack.append(tm_packet)
-
         do_transmit_packet = False
         downlink_complete = False
-        command = tm_packet.command
-        if command == COMMAND_CODES['ACK']:
-            tc_packets_waiting_for_ack = []
-            do_transmit_packet = False
-        elif command == COMMAND_CODES['NAK']:
-            for p in tc_packets_waiting_for_ack:
-                p.transmit()
-            do_transmit_packet = False
-        elif command == COMMAND_CODES['XMIT_COUNT']:
-            health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
-            science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
+        if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
             do_transmit_packet = True
-        elif command == COMMAND_CODES['XMIT_HEALTH']:
-            if packet_valid:
-                if tm_packet.spp_data[1] > 0:
-                    downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
-                    health_payloads_available = health_payloads_available - health_payloads_per_packet
-                else:
-                    downlink_payloads_pending = 0
-                if downlink_payloads_pending <= 0:
-                    downlink_complete = True
-            do_transmit_packet = True
-        elif command == COMMAND_CODES['XMIT_SCIENCE']:
-            if packet_valid:
-                if tm_packet.spp_data[1] > 0:
-                    downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
-                    science_payloads_available = science_payloads_available - science_payloads_per_packet
-                else:
-                    downlink_payloads_pending = 0
-                if downlink_payloads_pending <= 0:
-                    downlink_complete = True
-            do_transmit_packet = True
-        elif command == COMMAND_CODES['READ_MEM']:
-            do_transmit_packet = True
-        elif command == COMMAND_CODES['GET_COMMS']:
-            SppPacket.tm_packet_window = tm_packet.spp_data[1]
-            transmit_timeout_count = tm_packet.spp_data[2]
-            ack_timeout = tm_packet.spp_data[3]
-            sequence_number_window = tm_packet.spp_data[4]
-            turnaround = from_bigendian(tm_packet.spp_data[9:11], 2)
-            SppPacket.turnaround = turnaround
-            do_transmit_packet = True
-        elif command == COMMAND_CODES['MAC_TEST']:
-            do_transmit_packet = False
+            tm_packets_to_nak.append(tm_packet)
         else:
-            pass
+            command = tm_packet.command
+            if command == COMMAND_CODES['ACK']:
+                tc_packets_waiting_for_ack = []
+                do_transmit_packet = False
+            elif command == COMMAND_CODES['NAK']:
+                for p in tc_packets_waiting_for_ack:
+                    p.transmit()
+                do_transmit_packet = False
+            elif command == COMMAND_CODES['XMIT_COUNT']:
+                health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
+                science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
+                do_transmit_packet = True
+                tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['XMIT_HEALTH']:
+                downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
+                health_payloads_available = health_payloads_available - health_payloads_per_packet
+                if downlink_payloads_pending <= 0:
+                    downlink_payloads_pending = 0
+                    downlink_complete = True
+                do_transmit_packet = True
+                tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['XMIT_SCIENCE']:
+                downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
+                science_payloads_available = science_payloads_available - science_payloads_per_packet
+                if downlink_payloads_pending <= 0:
+                    downlink_payloads_pending = 0
+                    downlink_complete = True
+                do_transmit_packet = True
+                tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['READ_MEM']:
+                do_transmit_packet = True
+                tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['GET_COMMS']:
+                do_transmit_packet = True
+                tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['MAC_TEST']:
+                do_transmit_packet = False
+            else:
+                pass
 
         if do_transmit_packet:
-            if (((len(tm_packets_to_ack) + len(tm_packets_to_nak)) >= SppPacket.tm_packet_window) or downlink_complete):
+            if (((len(tm_packets_to_ack) + len(tm_packets_to_nak)) >= SppPacket.tm_packet_window) or
+                    downlink_complete):
+                # print('In do_transmit_packet, downlink_payloads_pending =', downlink_payloads_pending,
+                #       ',downlink_complete =', downlink_complete)
+                # print('len(packets_to_ack) =', len(tm_packets_to_ack), ', len(packets_to_nak) =', len(tm_packets_to_nak))
                 if len(tm_packets_to_nak) > 0:
                     tc_packet = make_nak('TC', tm_packets_to_nak)
                     tc_packet.set_sequence_number(ground_sequence_number)
@@ -607,21 +593,6 @@ def display_packet():
 
     if not q_display_packet.empty():
         values_per_row = 8
-        ax25_packet = q_display_packet.get()
-        if ax25_packet[16] == 0x18:
-            dp_packet = SppPacket('TC', dynamic=False)
-        elif ax25_packet[16] == 0x08:
-            dp_packet = SppPacket('TM', dynamic=False)
-        else:
-            dp_packet = SppPacket('OA', dynamic=False)
-        dp_packet.parse_ax25(ax25_packet)
-        if first_packet:
-            textview_buffer.insert(textview_buffer.get_end_iter(), "{\n\"packets\" : [\n")
-            first_packet = False
-        else:
-            textview_buffer.insert(textview_buffer.get_end_iter(), ",\n")
-        textview_buffer.insert(textview_buffer.get_end_iter(), "{\n")
-
         tv_header = ('    "sender":"<SENDER>", ' +
                      '"packet_type":"<PACKET_TYPE>", ' +
                      '"command":"<COMMAND>",\n')
@@ -641,73 +612,95 @@ def display_packet():
                    '"ax25_packet_length":"<AX25_PACKET_LENGTH>",\n' +
                    '    "ax25_packet":[\n<AX25_PACKET>    ]\n')
 
-        if dp_packet.is_oa_packet:
-            packet_type = 'OA'
-            tv_header = tv_header.replace('<SENDER>', 'ground')
-            tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
-            if dp_packet.spp_packet[16] == 0x31:
-                tv_header = tv_header.replace('<COMMAND>', 'PING_RETURN_COMMAND')
-            elif dp_packet.spp_packet[16] == 0x33:
-                tv_header = tv_header.replace('<COMMAND>', 'RADIO_RESET_COMMAND')
-            elif dp_packet.spp_packet[16] == 0x34:
-                tv_header = tv_header.replace('<COMMAND>', 'PIN_TOGGLE_COMMAND')
-            else:
-                tv_header = tv_header.replace('<COMMAND>', 'ILLEGAL OA COMMAND')
-        elif dp_packet.packet_type == 0x08:
-            packet_type = 'TM'
-            tv_header = tv_header.replace('<SENDER>', 'spacecraft')
-            tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
-            tv_header = tv_header.replace('<COMMAND>', COMMAND_NAMES[dp_packet.command])
-            tv_spp = tv_spp.replace('<SENDER>', 'spacecraft')
-            tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
-        elif dp_packet.packet_type == 0x18:
-            packet_type = 'TC'
-            tv_header = tv_header.replace('<SENDER>', 'ground')
-            tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
-            tv_header = tv_header.replace('<COMMAND>', COMMAND_NAMES[dp_packet.command])
-            tv_spp = tv_spp.replace('<SENDER>', 'ground')
-            tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
+        ax25_packet = q_display_packet.get()
+        if first_packet:
+            textview_buffer.insert(textview_buffer.get_end_iter(), "{\n\"packets\" : [\n")
+            first_packet = False
         else:
-            packet_type = 'UNKNOWN'
-            tv_header = tv_header.replace('<SENDER>', 'spacecraft')
-            tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
-            tv_header = tv_header.replace('<COMMAND>', 'UNKNOWN')
-
-        textview_buffer.insert(textview_buffer.get_end_iter(), tv_header)
-
-        if dp_packet.is_spp_packet:
-            tv_spp = tv_spp.replace('<GPS_WEEK>', "{:d}".format(dp_packet.gps_week))
-            tv_spp = tv_spp.replace('<GPS_TIME>', "{:14.7f}".format(dp_packet.gps_sow))
-            tv_spp = tv_spp.replace('<SEQUENCE_NUMBER>', "{:05d}".format(dp_packet.sequence_number))
-            tv_spp = tv_spp.replace('<COMMAND>', COMMAND_NAMES[dp_packet.command])
-
-            tv_spp = tv_spp.replace('<PACKET_DATA_LENGTH>', "{:d}".format(dp_packet.packet_data_length))
-            tv_spp = tv_spp.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(dp_packet.spp_data)))
-            packet_string = hex_tabulate(dp_packet.spp_data, values_per_row)
-            tv_spp = tv_spp.replace('<SPP_DATA>', packet_string)
-
-            if dp_packet.validation_mask == 0:
-                tv_spp = tv_spp.replace('<MAC_VALID>', 'True')
+            textview_buffer.insert(textview_buffer.get_end_iter(), ",\n")
+        if len(ax25_packet) >= 33:
+            if ax25_packet[16] == 0x18:
+                dp_packet = SppPacket('TC', dynamic=False)
+            elif ax25_packet[16] == 0x08:
+                dp_packet = SppPacket('TM', dynamic=False)
+            elif len(ax25_packet) == 33:
+                dp_packet = SppPacket('OA', dynamic=False)
             else:
-                tv_spp = tv_spp.replace('<MAC_VALID>', 'False')
-            packet_string = hex_tabulate(dp_packet.mac_digest, values_per_row)
-            tv_spp = tv_spp.replace('<MAC_DIGEST>', packet_string)
+                dp_packet = SppPacket('UN', dynamic=False)
+            dp_packet.parse_ax25(ax25_packet)
+            textview_buffer.insert(textview_buffer.get_end_iter(), "{\n")
 
-            textview_buffer.insert(textview_buffer.get_end_iter(), tv_spp)
+            if dp_packet.command in COMMAND_NAMES:
+                cmd_name = COMMAND_NAMES[dp_packet.command]
+            else:
+                cmd_name = COMMAND_NAMES[0x00]
+            if dp_packet.is_oa_packet:
+                packet_type = 'OA'
+                tv_header = tv_header.replace('<SENDER>', 'ground')
+                tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
+                if dp_packet.spp_packet[16] == 0x31:
+                    tv_header = tv_header.replace('<COMMAND>', 'PING_RETURN_COMMAND')
+                elif dp_packet.spp_packet[16] == 0x33:
+                    tv_header = tv_header.replace('<COMMAND>', 'RADIO_RESET_COMMAND')
+                elif dp_packet.spp_packet[16] == 0x34:
+                    tv_header = tv_header.replace('<COMMAND>', 'PIN_TOGGLE_COMMAND')
+                else:
+                    tv_header = tv_header.replace('<COMMAND>', 'ILLEGAL OA COMMAND')
+            elif dp_packet.packet_type == 0x08:
+                packet_type = 'TM'
+                tv_header = tv_header.replace('<SENDER>', 'spacecraft')
+                tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
+                tv_header = tv_header.replace('<COMMAND>', cmd_name)
+                tv_spp = tv_spp.replace('<SENDER>', 'spacecraft')
+                tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
+            elif dp_packet.packet_type == 0x18:
+                packet_type = 'TC'
+                tv_header = tv_header.replace('<SENDER>', 'ground')
+                tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
+                tv_header = tv_header.replace('<COMMAND>', cmd_name)
+                tv_spp = tv_spp.replace('<SENDER>', 'ground')
+                tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
+            else:
+                packet_type = 'UNKNOWN'
+                tv_header = tv_header.replace('<SENDER>', 'UNKNOWN')
+                tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
+                tv_header = tv_header.replace('<COMMAND>', 'UNKNOWN')
 
-            if ((dp_packet.spp_packet[0] == 0x08) and (dp_packet.spp_data[0] == 0x03)):
-                for n in range(dp_packet.spp_data[1]):
-                    payload_begin = 2 + (science_payload_length * n)
-                    payload_end = payload_begin + science_payload_length
-                    packet_string = payload_decode(dp_packet.spp_data[0],
-                                                   dp_packet.spp_data[payload_begin:payload_end], n)
-                    textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
+            textview_buffer.insert(textview_buffer.get_end_iter(), tv_header)
 
-        tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(dp_packet.ax25_packet[0:7]))
-        tv_ax25 = tv_ax25.replace('<AX25_SOURCE>', ax25_callsign(dp_packet.ax25_packet[7:14]))
-        tv_ax25 = tv_ax25.replace('<AX25_PACKET_LENGTH>', "{:d}".format(len(dp_packet.ax25_packet)))
+            if dp_packet.is_spp_packet:
+                tv_spp = tv_spp.replace('<GPS_WEEK>', "{:d}".format(dp_packet.gps_week))
+                tv_spp = tv_spp.replace('<GPS_TIME>', "{:14.7f}".format(dp_packet.gps_sow))
+                tv_spp = tv_spp.replace('<SEQUENCE_NUMBER>', "{:05d}".format(dp_packet.sequence_number))
+                tv_spp = tv_spp.replace('<COMMAND>', cmd_name)
 
-        packet_string = hex_tabulate(dp_packet.ax25_packet, values_per_row)
+                tv_spp = tv_spp.replace('<PACKET_DATA_LENGTH>', "{:d}".format(dp_packet.packet_data_length))
+                tv_spp = tv_spp.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(dp_packet.spp_data)))
+                packet_string = hex_tabulate(dp_packet.spp_data, values_per_row)
+                tv_spp = tv_spp.replace('<SPP_DATA>', packet_string)
+
+                if dp_packet.validation_mask == 0:
+                    tv_spp = tv_spp.replace('<MAC_VALID>', 'True')
+                else:
+                    tv_spp = tv_spp.replace('<MAC_VALID>', 'False')
+                packet_string = hex_tabulate(dp_packet.mac_digest, values_per_row)
+                tv_spp = tv_spp.replace('<MAC_DIGEST>', packet_string)
+
+                textview_buffer.insert(textview_buffer.get_end_iter(), tv_spp)
+
+                if ((dp_packet.spp_packet[0] == 0x08) and (dp_packet.spp_data[0] == 0x03)):
+                    for n in range(dp_packet.spp_data[1]):
+                        payload_begin = 2 + (science_payload_length * n)
+                        payload_end = payload_begin + science_payload_length
+                        packet_string = payload_decode(dp_packet.spp_data[0],
+                                                       dp_packet.spp_data[payload_begin:payload_end], n)
+                        textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
+
+        tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(ax25_packet[0:7]))
+        tv_ax25 = tv_ax25.replace('<AX25_SOURCE>', ax25_callsign(ax25_packet[7:14]))
+        tv_ax25 = tv_ax25.replace('<AX25_PACKET_LENGTH>', "{:d}".format(len(ax25_packet)))
+
+        packet_string = hex_tabulate(ax25_packet, values_per_row)
         tv_ax25 = tv_ax25.replace('<AX25_PACKET>', packet_string)
 
         textview_buffer.insert(textview_buffer.get_end_iter(), tv_ax25)
@@ -821,9 +814,6 @@ def main():
     global textview2_buffer
     global argwindow
     global filechooser2window
-    global combobox1
-    global radiobutton1
-    global radiobutton2
     global buffer_saved
     global buffer_filename
     global entry_objs
@@ -888,7 +878,6 @@ def main():
     ack_timeout = 10
     sequence_number_window = 2
     last_tc_packet = array.array('B', [])
-    baudrates = [9600, 19200, 38400, 76800, 115200]
     tc_packets_waiting_for_ack = []
     tm_packets_to_ack = []
     tm_packets_to_nak = []
@@ -907,6 +896,8 @@ def main():
     use_serial = config['comms'].getboolean('use_serial')
     kiss_over_serial = config['comms'].getboolean('kiss_over_serial')
     ignore_security_trailer_error = config['comms'].getboolean('ignore_security_trailer_error')
+    uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
+    downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
@@ -938,6 +929,8 @@ def main():
     RadioDevice.serial_device_name = serial_device_name
     RadioDevice.use_serial = use_serial
     RadioDevice.kiss_over_serial = kiss_over_serial
+    RadioDevice.uplink_simulated_error_rate = float(uplink_simulated_error_rate) / 100.0
+    RadioDevice.downlink_simulated_error_rate = float(downlink_simulated_error_rate) / 100.0
 
     radio = RadioDevice()
     radio.open()
@@ -959,10 +952,6 @@ def main():
     argwindow = builder.get_object("dialog1")
     filechooserwindow = builder.get_object("filechooserdialog1")
     filechooser2window = builder.get_object("filechooserdialog2")
-    entry1 = builder.get_object("entry1")
-    entry1.set_text(serial_device_name)
-    radiobutton1 = builder.get_object("radiobutton1")
-    radiobutton2 = builder.get_object("radiobutton2")
     entry_objs = [
         builder.get_object("entry2"),
         builder.get_object("entry3"),
@@ -986,8 +975,6 @@ def main():
         builder.get_object("label18")
     ]
     label11 = builder.get_object("label11")
-    combobox1 = builder.get_object("combobox1")
-    combobox1.set_active(0)
 
     appwindow_title = ' '.join([program_name, program_version])
     appwindow.set_title(appwindow_title)
@@ -996,7 +983,6 @@ def main():
     Handler.filechooserwindow = filechooserwindow
     Handler.filedialog_save = filedialog_save
     Handler.filechooser2window = filechooser2window
-    Handler.baudrates = baudrates
     Handler.label11 = label11
 
     p_receive_packet = mp.Process(target=receive_packet, args=(my_packet_type, radio,

@@ -1,4 +1,5 @@
 COMMAND_NAMES = {
+    0x00: 'INVALID',
     0x05: 'ACK',
     0x06: 'NAK',
     0x7F: 'CEASE_XMIT',

@@ -45,7 +45,8 @@ class RadioDevice:
     tx_port = None
     tx_obj = None
     serial_device_name = None
-    uplink_simulated_error_rate = 0
+    uplink_simulated_error_rate = 0.0
+    downlink_simulated_error_rate = 0.0
 
     def open(self):
         if self.use_serial:
@@ -65,9 +66,6 @@ class RadioDevice:
             self.tx_obj.close()
         except:
             pass
-
-    def set_baudrate(self, baudrate):
-        self.rx_obj.baudrate = baudrate
 
     def receive(self):
         if self.use_serial:
@@ -90,6 +88,9 @@ class RadioDevice:
         return ax25_packet
 
     def transmit(self, ax25_packet):
+        if (random.random() <= self.uplink_simulated_error_rate) and (len(ax25_packet) >= 32):
+            ax25_length = len(ax25_packet)
+            ax25_packet = array.array('B', [0xFF] * ax25_length)
         if self.use_serial:
             xmit_packet = lithium_wrap(ax25_packet)
         else:
@@ -336,12 +337,7 @@ def make_nak(packet_type, packets_to_nak):
 def receive_packet(my_packet_type, radio, q_receive_packet, q_display_packet):
     while True:
         ax25_packet = radio.receive()
-        if ax25_packet[16] != my_packet_type:
-            # if (random.random() <= 0.5) and (len(ax25_packet) >= 64) and (ax25_packet[16] == 0x08):
-            #     xor_idx = random.randrange(29, len(ax25_packet))
-            #     ax25_packet[xor_idx] = ax25_packet[xor_idx] ^ 0xFF
-            #     print('Simulated receive error, xor_idx, before/after', xor_idx, ax25_packet[xor_idx] ^ 0xFF,
-            #           ax25_packet[xor_idx])
+        if (len(ax25_packet) >= 17) and (ax25_packet[16] != my_packet_type):
             q_receive_packet.put(ax25_packet)
             q_display_packet.put(ax25_packet)
 
