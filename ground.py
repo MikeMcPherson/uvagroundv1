@@ -432,6 +432,7 @@ def process_received():
                 do_transmit_packet = False
             elif command == COMMAND_CODES['NAK']:
                 for p in tc_packets_waiting_for_ack:
+                    p.simulated_error = False
                     p.transmit()
                 do_transmit_packet = False
             elif command == COMMAND_CODES['XMIT_COUNT']:

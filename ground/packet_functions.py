@@ -203,7 +203,7 @@ class SppPacket:
         else:
             ax25_packet = array.array('B', self.ax25_packet)
         self.radio.transmit(ax25_packet)
-        self.q_display_packet.put(self.ax25_packet)
+        self.q_display_packet.put(ax25_packet)
 
     def __spp_wrap(self):
         self.packet_data_length = 28 + len(self.spp_data) - 1

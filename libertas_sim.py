@@ -95,8 +95,8 @@ def main():
     program_name = config['libertas_sim']['program_name']
     program_version = config['libertas_sim']['program_version']
     turnaround = int(config['comms']['turnaround'])
-    spacecraft_key = config['comms']['sc_mac_key'].encode()
-    ground_station_key = config['comms']['gs_mac_key'].encode()
+    sc_mac_key = config['comms']['sc_mac_key'].encode()
+    gs_mac_key = config['comms']['gs_mac_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
@@ -130,8 +130,8 @@ def main():
     SppPacket.oa_key = oa_key
     SppPacket.ground_maxsize_packets = ground_maxsize_packets
     SppPacket.turnaround = turnaround
-    SppPacket.sc_mac_key = spacecraft_key
-    SppPacket.gs_mac_key = ground_station_key
+    SppPacket.sc_mac_key = sc_mac_key
+    SppPacket.gs_mac_key = gs_mac_key
 
     RadioDevice.rx_server = rx_server
     RadioDevice.rx_port = rx_port
@@ -172,7 +172,7 @@ def main():
                 print('Unrecognized OA command', tc_packet.command)
         else:
             if tc_packet.validation_mask != 0:
-                tm_packet = make_nak([], spacecraft_key)
+                tm_packet = make_nak('TM', [])
                 tm_packet.set_sequence_number(spacecraft_sequence_number)
                 tm_packet.transmit()
                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
@@ -329,6 +329,10 @@ def main():
 
                 else:
                     print('Unknown tc_packet.command received', tc_packet.command)
+                    tm_packet = make_nak('TM', [])
+                    tm_packet.set_sequence_number(spacecraft_sequence_number)
+                    tm_packet.transmit()
+                    spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
 
                 if not doing_retransmit:
                     if doing_health_payloads:
