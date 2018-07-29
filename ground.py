@@ -413,85 +413,92 @@ def process_received():
     global tm_packets_to_nak
     global health_payloads_per_packet
     global science_payloads_per_packet
+    global my_packet_type
 
     while True:
         ax25_packet = q_receive_packet.get()
-        q_display_packet.put(ax25_packet)
-        tm_packet = SppPacket('TM', dynamic=False)
-        tm_packet.parse_ax25(ax25_packet)
-        do_transmit_packet = False
-        downlink_complete = False
-        if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
-            do_transmit_packet = True
-            tm_packets_to_nak.append(tm_packet)
+        if len(ax25_packet) < 17:
+            print('Short packet')
+            hexdump.hexdump(ax25_packet)
+        elif (ax25_packet[16] == my_packet_type):
+            pass
         else:
-            command = tm_packet.command
-            if command == COMMAND_CODES['ACK']:
-                tc_packets_waiting_for_ack = []
-                do_transmit_packet = False
-            elif command == COMMAND_CODES['NAK']:
-                for p in tc_packets_waiting_for_ack:
-                    p.simulated_error = False
-                    p.transmit()
-                do_transmit_packet = False
-            elif command == COMMAND_CODES['XMIT_COUNT']:
-                tc_packets_waiting_for_ack = []
-                health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
-                science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
+            q_display_packet.put(ax25_packet)
+            tm_packet = SppPacket('TM', dynamic=False)
+            tm_packet.parse_ax25(ax25_packet)
+            do_transmit_packet = False
+            downlink_complete = False
+            if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
                 do_transmit_packet = True
-                tm_packets_to_ack.append(tm_packet)
-            elif command == COMMAND_CODES['XMIT_HEALTH']:
-                tc_packets_waiting_for_ack = []
-                downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
-                health_payloads_available = health_payloads_available - health_payloads_per_packet
-                if downlink_payloads_pending <= 0:
-                    downlink_payloads_pending = 0
-                    downlink_complete = True
-                do_transmit_packet = True
-                tm_packets_to_ack.append(tm_packet)
-            elif command == COMMAND_CODES['XMIT_SCIENCE']:
-                tc_packets_waiting_for_ack = []
-                downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
-                science_payloads_available = science_payloads_available - science_payloads_per_packet
-                if downlink_payloads_pending <= 0:
-                    downlink_payloads_pending = 0
-                    downlink_complete = True
-                do_transmit_packet = True
-                tm_packets_to_ack.append(tm_packet)
-            elif command == COMMAND_CODES['READ_MEM']:
-                tc_packets_waiting_for_ack = []
-                do_transmit_packet = True
-                tm_packets_to_ack.append(tm_packet)
-            elif command == COMMAND_CODES['GET_COMMS']:
-                tc_packets_waiting_for_ack = []
-                do_transmit_packet = True
-                tm_packets_to_ack.append(tm_packet)
-            elif command == COMMAND_CODES['MAC_TEST']:
-                tc_packets_waiting_for_ack = []
-                do_transmit_packet = False
+                tm_packets_to_nak.append(tm_packet)
             else:
-                pass
-
-        if do_transmit_packet:
-            if (((len(tm_packets_to_ack) + len(tm_packets_to_nak)) >= SppPacket.tm_packet_window) or
-                    downlink_complete):
-                # print('In do_transmit_packet, downlink_payloads_pending =', downlink_payloads_pending,
-                #       ',downlink_complete =', downlink_complete)
-                # print('len(packets_to_ack) =', len(tm_packets_to_ack), ', len(packets_to_nak) =', len(tm_packets_to_nak))
-                if len(tm_packets_to_nak) > 0:
-                    tc_packet = make_nak('TC', tm_packets_to_nak)
-                    tc_packet.set_sequence_number(ground_sequence_number)
-                    tc_packet.transmit()
-                    ground_sequence_number = sn_increment(ground_sequence_number)
-                    expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
+                command = tm_packet.command
+                if command == COMMAND_CODES['ACK']:
+                    tc_packets_waiting_for_ack = []
+                    do_transmit_packet = False
+                elif command == COMMAND_CODES['NAK']:
+                    for p in tc_packets_waiting_for_ack:
+                        p.simulated_error = False
+                        p.transmit()
+                    do_transmit_packet = False
+                elif command == COMMAND_CODES['XMIT_COUNT']:
+                    tc_packets_waiting_for_ack = []
+                    health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
+                    science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
+                    do_transmit_packet = True
+                    tm_packets_to_ack.append(tm_packet)
+                elif command == COMMAND_CODES['XMIT_HEALTH']:
+                    tc_packets_waiting_for_ack = []
+                    downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
+                    health_payloads_available = health_payloads_available - health_payloads_per_packet
+                    if downlink_payloads_pending <= 0:
+                        downlink_payloads_pending = 0
+                        downlink_complete = True
+                    do_transmit_packet = True
+                    tm_packets_to_ack.append(tm_packet)
+                elif command == COMMAND_CODES['XMIT_SCIENCE']:
+                    tc_packets_waiting_for_ack = []
+                    downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
+                    science_payloads_available = science_payloads_available - science_payloads_per_packet
+                    if downlink_payloads_pending <= 0:
+                        downlink_payloads_pending = 0
+                        downlink_complete = True
+                    do_transmit_packet = True
+                    tm_packets_to_ack.append(tm_packet)
+                elif command == COMMAND_CODES['READ_MEM']:
+                    tc_packets_waiting_for_ack = []
+                    do_transmit_packet = True
+                    tm_packets_to_ack.append(tm_packet)
+                elif command == COMMAND_CODES['GET_COMMS']:
+                    tc_packets_waiting_for_ack = []
+                    do_transmit_packet = True
+                    tm_packets_to_ack.append(tm_packet)
+                elif command == COMMAND_CODES['MAC_TEST']:
+                    tc_packets_waiting_for_ack = []
+                    do_transmit_packet = False
                 else:
-                    tc_packet = make_ack('TC', [])
-                    tc_packet.set_sequence_number(ground_sequence_number)
-                    tc_packet.transmit()
-                    ground_sequence_number = sn_increment(ground_sequence_number)
-                    expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
-                tm_packets_to_ack = []
-                tm_packets_to_nak = []
+                    pass
+
+            if do_transmit_packet:
+                if (((len(tm_packets_to_ack) + len(tm_packets_to_nak)) >= SppPacket.tm_packet_window) or
+                        downlink_complete):
+                    # print('In do_transmit_packet, downlink_payloads_pending =', downlink_payloads_pending,
+                    #       ',downlink_complete =', downlink_complete)
+                    # print('len(packets_to_ack) =', len(tm_packets_to_ack), ', len(packets_to_nak) =', len(tm_packets_to_nak))
+                    if len(tm_packets_to_nak) > 0:
+                        tc_packet = make_nak('TC', tm_packets_to_nak)
+                        tc_packet.set_sequence_number(ground_sequence_number)
+                        tc_packet.transmit()
+                        ground_sequence_number = sn_increment(ground_sequence_number)
+                        expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
+                    else:
+                        tc_packet = make_ack('TC', [])
+                        tc_packet.set_sequence_number(ground_sequence_number)
+                        tc_packet.transmit()
+                        ground_sequence_number = sn_increment(ground_sequence_number)
+                        expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
+                    tm_packets_to_ack = []
+                    tm_packets_to_nak = []
 
 """
 Helpers
@@ -854,6 +861,7 @@ def main():
     global ignore_security_trailer_error
     global tm_packets_to_ack
     global tm_packets_to_nak
+    global my_packet_type
 
     serial_device_name = 'pty_libertas'
     buffer_saved = False
