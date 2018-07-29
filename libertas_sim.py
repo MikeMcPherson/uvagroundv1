@@ -154,7 +154,6 @@ def main():
 
     while True:
         ax25_packet = q_receive_packet.get()
-        q_display_packet.get()
         tc_packet = SppPacket('TC', dynamic=False)
         tc_packet.parse_ax25(ax25_packet)
         if tc_packet.is_oa_packet:

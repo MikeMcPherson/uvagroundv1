@@ -416,6 +416,7 @@ def process_received():
 
     while True:
         ax25_packet = q_receive_packet.get()
+        q_display_packet.put(ax25_packet)
         tm_packet = SppPacket('TM', dynamic=False)
         tm_packet.parse_ax25(ax25_packet)
         do_transmit_packet = False
@@ -491,7 +492,6 @@ def process_received():
                     expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
                 tm_packets_to_ack = []
                 tm_packets_to_nak = []
-
 
 """
 Helpers
@@ -1008,7 +1008,7 @@ def main():
     os.nice(20)
 
     GObject.threads_init()
-    GObject.timeout_add(200, display_packet)
+    GObject.timeout_add(500, display_packet)
     Gtk.main()
 
 

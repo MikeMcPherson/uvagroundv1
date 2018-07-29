@@ -244,6 +244,7 @@ class SppPacket:
         self.ax25_header = self.ax25_packet[:16]
         self.spp_packet = self.ax25_packet[16:]
 
+
     def __is_libertas_packet(self):
         self.is_spp_packet = False
         self.is_oa_packet = True
@@ -346,7 +347,6 @@ def receive_packet(my_packet_type, radio, q_receive_packet, q_display_packet):
         ax25_packet = radio.receive()
         if (len(ax25_packet) >= 17) and (ax25_packet[16] != my_packet_type):
             q_receive_packet.put(ax25_packet)
-            q_display_packet.put(ax25_packet)
 
 
 def init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid):
