@@ -398,8 +398,6 @@ Process Received Packets (thread)
 
 def process_received():
     global expected_spacecraft_sequence_number
-    global spacecraft_key
-    global ground_station_key
     global ground_sequence_number
     global tc_packets_waiting_for_ack
     global q_receive_packet
@@ -436,11 +434,13 @@ def process_received():
                     p.transmit()
                 do_transmit_packet = False
             elif command == COMMAND_CODES['XMIT_COUNT']:
+                tc_packets_waiting_for_ack = []
                 health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
                 science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
                 do_transmit_packet = True
                 tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['XMIT_HEALTH']:
+                tc_packets_waiting_for_ack = []
                 downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
                 health_payloads_available = health_payloads_available - health_payloads_per_packet
                 if downlink_payloads_pending <= 0:
@@ -449,6 +449,7 @@ def process_received():
                 do_transmit_packet = True
                 tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['XMIT_SCIENCE']:
+                tc_packets_waiting_for_ack = []
                 downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
                 science_payloads_available = science_payloads_available - science_payloads_per_packet
                 if downlink_payloads_pending <= 0:
@@ -457,12 +458,15 @@ def process_received():
                 do_transmit_packet = True
                 tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['READ_MEM']:
+                tc_packets_waiting_for_ack = []
                 do_transmit_packet = True
                 tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['GET_COMMS']:
+                tc_packets_waiting_for_ack = []
                 do_transmit_packet = True
                 tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['MAC_TEST']:
+                tc_packets_waiting_for_ack = []
                 do_transmit_packet = False
             else:
                 pass
@@ -589,8 +593,8 @@ def display_packet():
     global q_display_packet
     global health_payload_length
     global science_payload_length
-    global spacecraft_key
-    global ground_station_key
+
+    display_ax25 = False
 
     if not q_display_packet.empty():
         values_per_row = 8
@@ -703,14 +707,13 @@ def display_packet():
                                                        dp_packet.spp_data[payload_begin:payload_end], n)
                         textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
 
-        tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(ax25_packet[0:7]))
-        tv_ax25 = tv_ax25.replace('<AX25_SOURCE>', ax25_callsign(ax25_packet[7:14]))
-        tv_ax25 = tv_ax25.replace('<AX25_PACKET_LENGTH>', "{:d}".format(len(ax25_packet)))
-
-        packet_string = hex_tabulate(ax25_packet, values_per_row)
-        tv_ax25 = tv_ax25.replace('<AX25_PACKET>', packet_string)
-
-        textview_buffer.insert(textview_buffer.get_end_iter(), tv_ax25)
+        if display_ax25:
+            tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(ax25_packet[0:7]))
+            tv_ax25 = tv_ax25.replace('<AX25_SOURCE>', ax25_callsign(ax25_packet[7:14]))
+            tv_ax25 = tv_ax25.replace('<AX25_PACKET_LENGTH>', "{:d}".format(len(ax25_packet)))
+            packet_string = hex_tabulate(ax25_packet, values_per_row)
+            tv_ax25 = tv_ax25.replace('<AX25_PACKET>', packet_string)
+            textview_buffer.insert(textview_buffer.get_end_iter(), tv_ax25)
 
         textview_buffer.insert(textview_buffer.get_end_iter(), "}\n")
         end_mark = textview_buffer.create_mark('END', textview_buffer.get_end_iter(), True)
@@ -1001,6 +1004,8 @@ def main():
     p_receive_packet.start()
     process_thread = threading.Thread(name='process_received', target=process_received, daemon=True)
     process_thread.start()
+
+    os.nice(20)
 
     GObject.threads_init()
     GObject.timeout_add(200, display_packet)
