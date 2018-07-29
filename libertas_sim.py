@@ -95,8 +95,8 @@ def main():
     program_name = config['libertas_sim']['program_name']
     program_version = config['libertas_sim']['program_version']
     turnaround = int(config['comms']['turnaround'])
-    spacecraft_key = config['comms']['spacecraft_key'].encode()
-    ground_station_key = config['comms']['ground_station_key'].encode()
+    spacecraft_key = config['comms']['sc_mac_key'].encode()
+    ground_station_key = config['comms']['gs_mac_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
@@ -130,8 +130,8 @@ def main():
     SppPacket.oa_key = oa_key
     SppPacket.ground_maxsize_packets = ground_maxsize_packets
     SppPacket.turnaround = turnaround
-    SppPacket.spacecraft_key = spacecraft_key
-    SppPacket.ground_station_key = ground_station_key
+    SppPacket.sc_mac_key = spacecraft_key
+    SppPacket.gs_mac_key = ground_station_key
 
     RadioDevice.rx_server = rx_server
     RadioDevice.rx_port = rx_port

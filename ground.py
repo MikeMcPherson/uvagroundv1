@@ -604,6 +604,7 @@ def display_packet():
                   '"packet_data_length":"<PACKET_DATA_LENGTH>", ' +
                   '"<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
                   '    "<PACKET_TYPE>_data":[\n<SPP_DATA>    ],\n' +
+                  '    "simulated_error":"<SIMULATED_ERROR>",\n' +
                   '    "security_trailer_valid":"<MAC_VALID>",\n' +
                   '    "security_trailer":[\n<MAC_DIGEST>    ],\n')
 
@@ -678,6 +679,11 @@ def display_packet():
                 tv_spp = tv_spp.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(dp_packet.spp_data)))
                 packet_string = hex_tabulate(dp_packet.spp_data, values_per_row)
                 tv_spp = tv_spp.replace('<SPP_DATA>', packet_string)
+
+                if dp_packet.simulated_error:
+                    tv_spp = tv_spp.replace('<SIMULATED_ERROR>', 'True')
+                else:
+                    tv_spp = tv_spp.replace('<SIMULATED_ERROR>', 'False')
 
                 if dp_packet.validation_mask == 0:
                     tv_spp = tv_spp.replace('<MAC_VALID>', 'True')
@@ -889,9 +895,11 @@ def main():
     program_version = config['general']['program_version']
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
-    spacecraft_key = config['comms']['spacecraft_key'].encode()
-    ground_station_key = config['comms']['ground_station_key'].encode()
+    sc_mac_key = config['comms']['sc_mac_key'].encode()
+    gs_mac_key = config['comms']['gs_mac_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
+    encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
+    gs_encryption_key = config['comms']['gs_encryption_key'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
     kiss_over_serial = config['comms'].getboolean('kiss_over_serial')
@@ -919,8 +927,12 @@ def main():
     SppPacket.tm_packet_window = tm_packet_window
     SppPacket.turnaround = turnaround
     SppPacket.ground_maxsize_packets = ground_maxsize_packets
-    SppPacket.spacecraft_key = spacecraft_key
-    SppPacket.ground_station_key = ground_station_key
+    SppPacket.sc_mac_key = sc_mac_key
+    SppPacket.gs_mac_key = gs_mac_key
+    SppPacket.encrypt_uplink = encrypt_uplink
+    SppPacket.gs_encryption_key = gs_encryption_key
+    SppPacket.uplink_simulated_error_rate = float(uplink_simulated_error_rate) / 100.0
+    SppPacket.downlink_simulated_error_rate = float(downlink_simulated_error_rate) / 100.0
 
     RadioDevice.rx_server = rx_server
     RadioDevice.rx_port = rx_port
@@ -929,8 +941,6 @@ def main():
     RadioDevice.serial_device_name = serial_device_name
     RadioDevice.use_serial = use_serial
     RadioDevice.kiss_over_serial = kiss_over_serial
-    RadioDevice.uplink_simulated_error_rate = float(uplink_simulated_error_rate) / 100.0
-    RadioDevice.downlink_simulated_error_rate = float(downlink_simulated_error_rate) / 100.0
 
     radio = RadioDevice()
     radio.open()

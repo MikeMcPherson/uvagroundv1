@@ -45,8 +45,6 @@ class RadioDevice:
     tx_port = None
     tx_obj = None
     serial_device_name = None
-    uplink_simulated_error_rate = 0.0
-    downlink_simulated_error_rate = 0.0
 
     def open(self):
         if self.use_serial:
@@ -88,9 +86,6 @@ class RadioDevice:
         return ax25_packet
 
     def transmit(self, ax25_packet):
-        if (random.random() <= self.uplink_simulated_error_rate) and (len(ax25_packet) >= 32):
-            ax25_length = len(ax25_packet)
-            ax25_packet = array.array('B', [0xFF] * ax25_length)
         if self.use_serial:
             xmit_packet = lithium_wrap(ax25_packet)
         else:
@@ -121,21 +116,26 @@ class SppPacket:
     q_display_packet = None
     ground_maxsize_packets = None
     mac_digest_len = 16
-    spacecraft_key = None
-    ground_station_key = None
+    sc_mac_key = None
+    gs_mac_key = None
+    encrypt_uplink = None
+    gs_encryption_key = None
     tm_packet_window = None
     mac_scope = None
     validation_digest = None
+    uplink_simulated_error_rate = 0.0
+    downlink_simulated_error_rate = 0.0
+    simulated_error = False
 
     def __init__(self, packet_type, dynamic):
         if packet_type == 'TC':
             self.packet_type = 0x18
             self.dynamic = dynamic
-            self.key = self.ground_station_key
+            self.key = self.gs_mac_key
         elif packet_type == 'TM':
             self.packet_type = 0x08
             self.dynamic = dynamic
-            self.key = self.spacecraft_key
+            self.key = self.sc_mac_key
         elif packet_type == 'OA':
             self.packet_type = 0
             self.dynamic = False
@@ -151,6 +151,7 @@ class SppPacket:
         self.command = 0
         self.expected_sequence_number = 0
         self.validation_mask = 0
+        self.simulated_error = False
         self.mac_digest = array.array('B', [])
         self.spp_packet = array.array('B', [])
         self.ax25_packet = array.array('B', [])
@@ -196,7 +197,12 @@ class SppPacket:
 
     def transmit(self):
         time.sleep(float(self.turnaround) / 1000.0)
-        self.radio.transmit(self.ax25_packet)
+        if (random.random() <= self.uplink_simulated_error_rate) and (self.packet_type != 0):
+            self.simulated_error = True
+            ax25_packet = array.array('B', [0xFF] * len(self.ax25_packet))
+        else:
+            ax25_packet = array.array('B', self.ax25_packet)
+        self.radio.transmit(ax25_packet)
         self.q_display_packet.put(self.ax25_packet)
 
     def __spp_wrap(self):
