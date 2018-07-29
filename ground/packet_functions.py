@@ -199,7 +199,8 @@ class SppPacket:
         time.sleep(float(self.turnaround) / 1000.0)
         if (random.random() <= self.uplink_simulated_error_rate) and (self.packet_type != 0):
             self.simulated_error = True
-            ax25_packet = array.array('B', [0xFF] * len(self.ax25_packet))
+            ax25_packet = array.array('B', self.ax25_packet[:17])
+            ax25_packet = array.array('B', [0xFF] * (len(self.ax25_packet) - 17))
         else:
             ax25_packet = array.array('B', self.ax25_packet)
         self.radio.transmit(ax25_packet)
