@@ -170,6 +170,7 @@ def process_command(button_label):
     global downlink_payloads_pending
     global health_payloads_per_packet
     global science_payloads_per_packet
+    global dump_mode
 
     do_transmit_packet = False
     do_sn_increment = False
@@ -227,8 +228,14 @@ def process_command(button_label):
         if dialog1_xmit:
             do_transmit_packet = True
             do_sn_increment = True
-            expect_ack = True
-            downlink_payloads_pending = args[0] * health_payloads_per_packet
+            if args[0] == 0xFF:
+                expect_ack = False
+                downlink_payloads_pending = 0xFF
+                dump_mode = True
+            else:
+                expect_ack = True
+                downlink_payloads_pending = args[0] * health_payloads_per_packet
+                dump_mode = False
             tc_data = array.array('B', [0x02])
             tc_data.append(args[0])
             tc_packet.set_spp_data(tc_data)
@@ -245,8 +252,14 @@ def process_command(button_label):
         if dialog1_xmit:
             do_transmit_packet = True
             do_sn_increment = True
-            expect_ack = True
-            downlink_payloads_pending = args[0] * science_payloads_per_packet
+            if args[0] == 0xFF:
+                expect_ack = False
+                downlink_payloads_pending = 0xFF
+                dump_mode = True
+            else:
+                expect_ack = True
+                downlink_payloads_pending = args[0] * science_payloads_per_packet
+                dump_mode = False
             tc_data = array.array('B', [0x03])
             tc_data.append(args[0])
             tc_packet.set_spp_data(tc_data)
@@ -414,6 +427,7 @@ def process_received():
     global health_payloads_per_packet
     global science_payloads_per_packet
     global my_packet_type
+    global dump_mode
 
     while True:
         ax25_packet = q_receive_packet.get()
@@ -459,7 +473,8 @@ def process_received():
                         downlink_payloads_pending = 0
                         downlink_complete = True
                     do_transmit_packet = True
-                    tm_packets_to_ack.append(tm_packet)
+                    if not dump_mode:
+                        tm_packets_to_ack.append(tm_packet)
                 elif command == COMMAND_CODES['XMIT_SCIENCE']:
                     tc_packets_waiting_for_ack = []
                     downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
@@ -468,7 +483,8 @@ def process_received():
                         downlink_payloads_pending = 0
                         downlink_complete = True
                     do_transmit_packet = True
-                    tm_packets_to_ack.append(tm_packet)
+                    if not dump_mode:
+                        tm_packets_to_ack.append(tm_packet)
                 elif command == COMMAND_CODES['READ_MEM']:
                     tc_packets_waiting_for_ack = []
                     do_transmit_packet = True
@@ -483,7 +499,7 @@ def process_received():
                 else:
                     pass
 
-            if do_transmit_packet:
+            if do_transmit_packet and (not dump_mode):
                 if (((len(tm_packets_to_ack) + len(tm_packets_to_nak)) >= SppPacket.tm_packet_window) or
                         downlink_complete):
                     # print('In do_transmit_packet, downlink_payloads_pending =', downlink_payloads_pending,
@@ -866,6 +882,7 @@ def main():
     global tm_packets_to_ack
     global tm_packets_to_nak
     global my_packet_type
+    global dump_mode
 
     serial_device_name = 'pty_libertas'
     buffer_saved = False
@@ -880,6 +897,7 @@ def main():
     src_callsign = 'W4UVA '
     src_ssid = 0
 
+    dump_mode = False
     my_packet_type = 0x18
     spp_header_len = 15
     buffer_filename = ''

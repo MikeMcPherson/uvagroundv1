@@ -168,7 +168,6 @@ def main():
         elif ax25_packet[16] == my_packet_type:
             pass
         else:
-            logger.info('Got packet')
             tc_packet = SppPacket('TC', dynamic=False)
             tc_packet.parse_ax25(ax25_packet)
             if tc_packet.is_oa_packet:
@@ -336,14 +335,26 @@ def main():
 
                     elif tc_packet.command == COMMAND_XMIT_HEALTH:
                         print('Received XMIT_HEALTH')
-                        downlink_health_payloads = min((tc_packet.spp_data[1] * health_payloads_per_packet),
-                                                       health_payloads_pending)
+                        if tc_packet.spp_data[1] == 0xFF:
+                            print('Dump mode')
+                            downlink_health_payloads = health_payloads_pending
+                            dump_mode = True
+                        else:
+                            downlink_health_payloads = min((tc_packet.spp_data[1] * health_payloads_per_packet),
+                                                           health_payloads_pending)
+                            dump_mode = False
                         doing_health_payloads = True
 
                     elif tc_packet.command == COMMAND_XMIT_SCIENCE:
                         print('Received XMIT_SCIENCE')
-                        downlink_science_payloads = min((tc_packet.spp_data[1] * science_payloads_per_packet),
-                                                        science_payloads_pending)
+                        if tc_packet.spp_data[1] == 0xFF:
+                            print('Dump mode')
+                            downlink_science_payloads = science_payloads_pending
+                            dump_mode = True
+                        else:
+                            downlink_science_payloads = min((tc_packet.spp_data[1] * science_payloads_per_packet),
+                                                            science_payloads_pending)
+                            dump_mode = False
                         doing_science_payloads = True
 
                     else:
@@ -355,7 +366,11 @@ def main():
 
                     if not doing_retransmit:
                         if doing_health_payloads:
-                            for reps in range(tm_packet_window):
+                            if dump_mode:
+                                rep_count = downlink_health_payloads
+                            else:
+                                rep_count = tm_packet_window
+                            for reps in range(rep_count):
                                 doing_health_payloads = False
                                 tm_packet = SppPacket('TM', dynamic=True)
                                 spp_data = array.array('B', [0x02])
@@ -379,12 +394,17 @@ def main():
                                 tm_packet.set_spp_data(spp_data)
                                 tm_packet.transmit()
                                 print('Sent XMIT_HEALTH')
-                                tm_packets_waiting_ack.append(tm_packet)
+                                if not dump_mode:
+                                    tm_packets_waiting_ack.append(tm_packet)
                                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
                                 if not doing_health_payloads:
                                     break
                         elif doing_science_payloads:
-                            for reps in range(tm_packet_window):
+                            if dump_mode:
+                                rep_count = downlink_science_payloads
+                            else:
+                                rep_count = tm_packet_window
+                            for reps in range(rep_count):
                                 doing_science_payloads = False
                                 tm_packet = SppPacket('TM', dynamic=True)
                                 spp_data = array.array('B', [0x03])
@@ -408,7 +428,8 @@ def main():
                                 tm_packet.set_spp_data(spp_data)
                                 tm_packet.transmit()
                                 print('Sent XMIT_SCIENCE')
-                                tm_packets_waiting_ack.append(tm_packet)
+                                if not dump_mode:
+                                    tm_packets_waiting_ack.append(tm_packet)
                                 spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
                                 if not doing_science_payloads:
                                     break
