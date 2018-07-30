@@ -417,12 +417,15 @@ def process_received():
 
     while True:
         ax25_packet = q_receive_packet.get()
-        if len(ax25_packet) < 17:
-            print('Short packet')
-            hexdump.hexdump(ax25_packet)
-        elif (ax25_packet[16] == my_packet_type):
+        if ax25_packet == 0:
+            print('Socket closed')
+            exit(1)
+        if (ax25_packet[16] == my_packet_type):
             pass
         else:
+            if len(ax25_packet) < 48:
+                padding = 48 - len(ax25_packet)
+                ax25_packet.extend([0x00] * padding)
             q_display_packet.put(ax25_packet)
             tm_packet = SppPacket('TM', dynamic=False)
             tm_packet.parse_ax25(ax25_packet)
@@ -430,6 +433,7 @@ def process_received():
             downlink_complete = False
             if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
                 do_transmit_packet = True
+                tm_packet.set_sequence_number(expected_spacecraft_sequence_number)
                 tm_packets_to_nak.append(tm_packet)
             else:
                 command = tm_packet.command
@@ -914,7 +918,6 @@ def main():
     gs_encryption_key = config['comms']['gs_encryption_key'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
-    kiss_over_serial = config['comms'].getboolean('kiss_over_serial')
     ignore_security_trailer_error = config['comms'].getboolean('ignore_security_trailer_error')
     uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
@@ -924,6 +927,8 @@ def main():
     else:
         logging.basicConfig(filename='ground.log', level=logging.INFO, format='%(asctime)s %(message)s')
     logging.info('%s %s: Run started', program_name, program_version)
+    logger = mp.log_to_stderr()
+    logger.setLevel(logging.INFO)
 
     if use_serial:
         gs_xcvr_uhd_pid = None
@@ -952,9 +957,9 @@ def main():
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
     RadioDevice.use_serial = use_serial
-    RadioDevice.kiss_over_serial = kiss_over_serial
 
     radio = RadioDevice()
+    radio.timeout = ack_timeout
     radio.open()
     SppPacket.radio = radio
 
@@ -1007,8 +1012,7 @@ def main():
     Handler.filechooser2window = filechooser2window
     Handler.label11 = label11
 
-    p_receive_packet = mp.Process(target=receive_packet, args=(my_packet_type, radio,
-                                                               q_receive_packet, q_display_packet))
+    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(radio, q_receive_packet, logger))
     p_receive_packet.start()
     process_thread = threading.Thread(name='process_received', target=process_received, daemon=True)
     process_thread.start()

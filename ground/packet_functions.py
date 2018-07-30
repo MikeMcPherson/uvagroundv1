@@ -35,9 +35,14 @@ import inspect
 from functools import wraps
 
 
+FEND = 0xC0
+FESC = 0xDB
+TFEND = 0xDC
+TFESC = 0xDD
+
+
 class RadioDevice:
     use_serial = None
-    kiss_over_serial = None
     rx_server = None
     rx_port = None
     rx_obj = None
@@ -45,6 +50,8 @@ class RadioDevice:
     tx_port = None
     tx_obj = None
     serial_device_name = None
+    timeout = None
+    timeout_flag = None
 
     def open(self):
         if self.use_serial:
@@ -54,6 +61,7 @@ class RadioDevice:
             rx_addr = (self.rx_server, self.rx_port)
             tx_addr = (self.tx_server, self.tx_port)
             self.rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # self.rx_obj.settimeout(self.timeout)
             self.rx_obj.connect(rx_addr)
             self.tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tx_obj.connect(tx_addr)
@@ -65,25 +73,20 @@ class RadioDevice:
         except:
             pass
 
-    def receive(self):
+    def receive(self, bytes_requested):
+        rcv_buffer = array.array('B', [])
         if self.use_serial:
-            serial_buffer = self.rx_obj.read(8)
-            rcv_packet = array.array('B', [])
+            serial_buffer = self.rx_obj.read(bytes_requested)
             for s in serial_buffer:
-                rcv_packet.append(s)
-            serial_buffer = self.rx_obj.read(rcv_packet[5] + 2)
-            for s in serial_buffer:
-                rcv_packet.append(s)
+                rcv_buffer.append(s)
         else:
-            rcv_string = self.rx_obj.recv(1024)
-            rcv_packet = array.array('B', [])
-            for c in rcv_string:
-                rcv_packet.append(c)
-        if self.use_serial:
-            ax25_packet = lithium_unwrap(rcv_packet)
-        else:
-            ax25_packet = kiss_unwrap(rcv_packet)
-        return ax25_packet
+            rcv_string = self.rx_obj.recv(512)
+            if rcv_string:
+                for c in rcv_string:
+                    rcv_buffer.append(c)
+            else:
+                rcv_buffer = rcv_string
+        return rcv_buffer
 
     def transmit(self, ax25_packet):
         if self.use_serial:
@@ -270,6 +273,41 @@ class SppPacket:
                 self.validation_mask = self.validation_mask | 0b00000001
 
 
+def receive_packet(radio, q_receive_packet, logger):
+    if radio.use_serial:
+        while True:
+            rcv_buffer = array.array('B', [])
+            serial_buffer = radio.receive(8)
+            for s in serial_buffer:
+                rcv_buffer.append(s)
+            serial_buffer = radio.receive(rcv_buffer[5] + 2)
+            for s in serial_buffer:
+                rcv_buffer.append(s)
+            ax25_packet = lithium_unwrap(rcv_buffer)
+            q_receive_packet.put(ax25_packet)
+    else:
+        in_kiss_packet = False
+        rcv_buffer = array.array('B', [])
+        while True:
+            rcv_string = radio.receive(0)
+            if rcv_string:
+                for c in rcv_string:
+                    if in_kiss_packet:
+                        rcv_buffer.append(c)
+                        if c == FEND:
+                            in_kiss_packet = False
+                            ax25_packet = kiss_unwrap(rcv_buffer)
+                            q_receive_packet.put(ax25_packet)
+                    else:
+                        if c == FEND:
+                            in_kiss_packet = True
+                            rcv_buffer = array.array('B', [])
+                            rcv_buffer.append(c)
+            elif rcv_string == 0:
+                ax25_packet = 0
+                q_receive_packet.put(ax25_packet)
+
+
 def sn_increment(sequence_number):
     sequence_number = sequence_number + 1
     if sequence_number > 65535:
@@ -342,12 +380,6 @@ def make_nak(packet_type, packets_to_nak):
     return packet
 
 
-def receive_packet(my_packet_type, radio, q_receive_packet, q_display_packet):
-    while True:
-        ax25_packet = radio.receive()
-        q_receive_packet.put(ax25_packet)
-
-
 def init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid):
     ax25_header = array.array('B', [])
     for c in dst_callsign:
@@ -418,11 +450,6 @@ def lithium_unwrap(lithium_packet):
     tm_packet = lithium_packet[8:-2]
     return(tm_packet)
 
-
-FEND = 0xC0
-FESC = 0xDB
-TFEND = 0xDC
-TFESC = 0xDD
 
 def kiss_wrap(ax25_packet):
     kiss_packet = array.array('B', [FEND, 0x00])
