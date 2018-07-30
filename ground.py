@@ -307,13 +307,13 @@ def process_command(button_label):
         title = '"SET_COMMS" Arguments'
         labels = ['TM Window', 'XMIT Max Retries', 'ACK Timeout', 'Sequence Window', 'Spacecraft SN',
                   'Ground SN', 'Turnaround', 'Transmit Power', 'N/A']
-        defaults = ['1', '4', '10', '2', '0', '0', '1000', '125', '0x0000']
+        defaults = ['1', '4', '5', '2', '0', '0', '1000', '125', '0x0000']
         tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit ' +
                     'before waiting for an ACK.  Default: 1. Maximum: 20',
                     '(8-bit) Number of unacknowledged transmit windows before the spacecraft ' +
                     'ceases transmission.  Default: 4.',
                     '(8-bit) Number of seconds the spacecraft waits for an ACK or NAK ' +
-                    'before retransmitting the last window.  Default: 10.',
+                    'before retransmitting the last window.  Default: 5 seconds.',
                     '(8-bit) Maximum allowable difference between the expected and received ' +
                     'Sequence Number.  Default: 2.',
                     '(16-bit) Next packet from the spacecraft will have this sequence number',
@@ -432,7 +432,7 @@ def process_received():
 
     while True:
         ax25_packet = q_receive_packet.get()
-        if ax25_packet == 0:
+        if ax25_packet is None:
             print('Socket closed')
             exit(1)
         if (ax25_packet[16] == my_packet_type):
@@ -446,7 +446,8 @@ def process_received():
             tm_packet.parse_ax25(ax25_packet)
             do_transmit_packet = False
             downlink_complete = False
-            if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
+            if ((tm_packet.validation_mask != 0) and (not ignore_security_trailer_error) and
+                    (len(tc_packets_waiting_for_ack) > 0)):
                 do_transmit_packet = True
                 tm_packet.set_sequence_number(expected_spacecraft_sequence_number)
                 tm_packets_to_nak.append(tm_packet)
@@ -901,6 +902,7 @@ def main():
 
     dump_mode = False
     my_packet_type = 0x18
+    their_packet_type = my_packet_type ^ 0x10
     spp_header_len = 15
     buffer_filename = ''
     ground_sequence_number = 1
@@ -917,7 +919,7 @@ def main():
     doing_science_payloads = False
     tm_packet_window = 1
     transmit_timeout_count = 4
-    ack_timeout = 10
+    ack_timeout = 5
     sequence_number_window = 2
     spacecraft_transmit_power = 0x7D
     last_tc_packet = array.array('B', [])
@@ -980,7 +982,7 @@ def main():
     RadioDevice.use_serial = use_serial
 
     radio = RadioDevice()
-    radio.timeout = ack_timeout
+    radio.ack_timeout = ack_timeout
     radio.open()
     SppPacket.radio = radio
 
@@ -1033,7 +1035,7 @@ def main():
     Handler.filechooser2window = filechooser2window
     Handler.label11 = label11
 
-    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(radio, q_receive_packet, logger))
+    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(their_packet_type, radio, q_receive_packet, logger))
     p_receive_packet.start()
     process_thread = threading.Thread(name='process_received', target=process_received, daemon=True)
     process_thread.start()

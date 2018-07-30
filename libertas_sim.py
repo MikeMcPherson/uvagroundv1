@@ -61,6 +61,7 @@ def main():
     COMMAND_MAC_TEST = 0x0E
 
     my_packet_type = 0x08
+    their_packet_type = my_packet_type ^ 0x10
     serial_device_name = 'pty_ground'
     spp_header_len = 15
     spacecraft_sequence_number = 1
@@ -76,7 +77,7 @@ def main():
     doing_retransmit = False
     tm_packet_window = 1
     transmit_timeout_count = 4
-    ack_timeout = 10
+    ack_timeout = 5
     sequence_number_window = 2
     spacecraft_transmit_power = 125
     tm_packets_waiting_ack = []
@@ -143,6 +144,7 @@ def main():
     RadioDevice.use_serial = use_serial
 
     radio = RadioDevice()
+    radio.ack_timeout = ack_timeout
     radio.open()
     SppPacket.radio = radio
 
@@ -150,13 +152,13 @@ def main():
     q_display_packet = mp.Queue()
     SppPacket.q_display_packet = q_display_packet
 
-    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(radio, q_receive_packet, logger))
+    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(their_packet_type, radio, q_receive_packet, logger))
     p_receive_packet.daemon = True
     p_receive_packet.start()
 
     while True:
         ax25_packet = q_receive_packet.get()
-        if not ax25_packet:
+        if ax25_packet is None:
             logger.info('Socket closed')
             exit()
         if len(ax25_packet) < 17:

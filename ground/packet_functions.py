@@ -41,64 +41,6 @@ TFEND = 0xDC
 TFESC = 0xDD
 
 
-class RadioDevice:
-    use_serial = None
-    rx_server = None
-    rx_port = None
-    rx_obj = None
-    tx_server = None
-    tx_port = None
-    tx_obj = None
-    serial_device_name = None
-    timeout = None
-    timeout_flag = None
-
-    def open(self):
-        if self.use_serial:
-            self.rx_obj = serial.Serial(self.serial_device_name, baudrate=9600)
-            self.tx_obj = self.rx_obj
-        else:
-            rx_addr = (self.rx_server, self.rx_port)
-            tx_addr = (self.tx_server, self.tx_port)
-            self.rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # self.rx_obj.settimeout(self.timeout)
-            self.rx_obj.connect(rx_addr)
-            self.tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.tx_obj.connect(tx_addr)
-
-    def close(self):
-        try:
-            self.rx_obj.close()
-            self.tx_obj.close()
-        except:
-            pass
-
-    def receive(self, bytes_requested):
-        rcv_buffer = array.array('B', [])
-        if self.use_serial:
-            serial_buffer = self.rx_obj.read(bytes_requested)
-            for s in serial_buffer:
-                rcv_buffer.append(s)
-        else:
-            rcv_string = self.rx_obj.recv(512)
-            if rcv_string:
-                for c in rcv_string:
-                    rcv_buffer.append(c)
-            else:
-                rcv_buffer = rcv_string
-        return rcv_buffer
-
-    def transmit(self, ax25_packet):
-        if self.use_serial:
-            xmit_packet = lithium_wrap(ax25_packet)
-        else:
-            xmit_packet = kiss_wrap(ax25_packet)
-        if self.use_serial:
-            self.tx_obj.write(xmit_packet)
-        else:
-            self.tx_obj.send(xmit_packet)
-
-
 def pre_post(f):
     @wraps(f)
     def wrapper(self, *args, **kw):
@@ -273,7 +215,72 @@ class SppPacket:
                 self.validation_mask = self.validation_mask | 0b00000001
 
 
-def receive_packet(radio, q_receive_packet, logger):
+class RadioDevice:
+    use_serial = None
+    rx_server = None
+    rx_port = None
+    rx_obj = None
+    tx_server = None
+    tx_port = None
+    tx_obj = None
+    serial_device_name = None
+    ack_timeout = None
+    ack_timeout_flag = None
+
+    def open(self):
+        if self.use_serial:
+            self.rx_obj = serial.Serial(self.serial_device_name, baudrate=9600)
+            self.tx_obj = self.rx_obj
+        else:
+            rx_addr = (self.rx_server, self.rx_port)
+            tx_addr = (self.tx_server, self.tx_port)
+            self.rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.rx_obj.settimeout(self.ack_timeout)
+            self.rx_obj.connect(rx_addr)
+            self.tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.tx_obj.connect(tx_addr)
+
+    def close(self):
+        try:
+            self.rx_obj.close()
+            self.tx_obj.close()
+        except:
+            pass
+
+    def receive(self, bytes_requested):
+        rcv_buffer = array.array('B', [])
+        if self.use_serial:
+            serial_buffer = self.rx_obj.read(bytes_requested)
+            for s in serial_buffer:
+                rcv_buffer.append(s)
+        else:
+            self.ack_timeout_flag = False
+            try:
+                rcv_string = rx_obj.recv(512)
+            except socket.timeout:
+                print('got timeout')
+                self.ack_timeout_flag = True
+                rcv_buffer = None
+            else:
+                if rcv_string:
+                    for c in rcv_string:
+                        rcv_buffer.append(c)
+                else:
+                    rcv_buffer = None
+        return rcv_buffer
+
+    def transmit(self, ax25_packet):
+        if self.use_serial:
+            xmit_packet = lithium_wrap(ax25_packet)
+        else:
+            xmit_packet = kiss_wrap(ax25_packet)
+        if self.use_serial:
+            self.tx_obj.write(xmit_packet)
+        else:
+            self.tx_obj.send(xmit_packet)
+
+
+def receive_packet(packet_type, radio, q_receive_packet, logger):
     if radio.use_serial:
         while True:
             rcv_buffer = array.array('B', [])
@@ -286,11 +293,21 @@ def receive_packet(radio, q_receive_packet, logger):
             ax25_packet = lithium_unwrap(rcv_buffer)
             q_receive_packet.put(ax25_packet)
     else:
+        ax25_badpacket = array.array('B', SppPacket.ax25_header)
+        ax25_badpacket.append(packet_type)
+        ax25_badpacket.extend([0x00] * 31)
         in_kiss_packet = False
         rcv_buffer = array.array('B', [])
         while True:
             rcv_string = radio.receive(0)
-            if rcv_string:
+            if radio.ack_timeout_flag:
+                q_receive_packet.put(ax25_badpacket)
+                in_kiss_packet = False
+            elif rcv_string is None:
+                ax25_packet = None
+                q_receive_packet.put(ax25_packet)
+                in_kiss_packet = False
+            else:
                 for c in rcv_string:
                     if in_kiss_packet:
                         rcv_buffer.append(c)
@@ -303,9 +320,6 @@ def receive_packet(radio, q_receive_packet, logger):
                             in_kiss_packet = True
                             rcv_buffer = array.array('B', [])
                             rcv_buffer.append(c)
-            elif rcv_string == 0:
-                ax25_packet = 0
-                q_receive_packet.put(ax25_packet)
 
 
 def sn_increment(sequence_number):
