@@ -306,20 +306,20 @@ def process_command(button_label):
     elif button_label == 'SET_COMMS':
         title = '"SET_COMMS" Arguments'
         labels = ['TM Window', 'XMIT Max Retries', 'ACK Timeout', 'Sequence Window', 'Spacecraft SN',
-                  'Ground SN', 'Turnaround', 'N/A', 'N/A']
-        defaults = ['1', '4', '10', '2', '0', '0', '1000', '0x0000', '0x0000']
+                  'Ground SN', 'Turnaround', 'Transmit Power', 'N/A']
+        defaults = ['1', '4', '10', '2', '0', '0', '1000', '125', '0x0000']
         tooltips = ['(8-bit) Number of Health or Science packets the spacecraft will transmit ' +
-                    'before waiting for an ACK.  Default: 0x01. Maximum: 0x14',
+                    'before waiting for an ACK.  Default: 1. Maximum: 20',
                     '(8-bit) Number of unacknowledged transmit windows before the spacecraft ' +
-                    'ceases transmission.  Default: 0x04.',
+                    'ceases transmission.  Default: 4.',
                     '(8-bit) Number of seconds the spacecraft waits for an ACK or NAK ' +
-                    'before retransmitting the last window.  Default: 0x0A.',
+                    'before retransmitting the last window.  Default: 10.',
                     '(8-bit) Maximum allowable difference between the expected and received ' +
-                    'Sequence Number.  Default: 0x02.',
+                    'Sequence Number.  Default: 2.',
                     '(16-bit) Next packet from the spacecraft will have this sequence number',
                     '(16-bit) Next packet from the ground station will have this sequence number',
                     '(16-bit) Minimum delay between transmit and receive packets.',
-                    'N/A', 'N/A']
+                    '(8-bit) Spacecraft transmit power, Default: 125 (produces approx. 1W)', 'N/A']
         args = dialog1_run(title, labels, defaults, tooltips)
         if dialog1_xmit:
             do_transmit_packet = True
@@ -334,6 +334,7 @@ def process_command(button_label):
             tc_data.extend(to_bigendian(args[4], 2))
             tc_data.extend(to_bigendian(args[5], 2))
             tc_data.extend(to_bigendian(args[6], 2))
+            tc_data.append(args[7])
             tc_packet.set_spp_data(tc_data)
             tc_packet.set_sequence_number(ground_sequence_number)
 
@@ -874,6 +875,7 @@ def main():
     global transmit_timeout_count
     global ack_timeout
     global sequence_number_window
+    global spacecraft_transmit_power
     global last_tc_packet
     global first_packet
     global tc_packets_waiting_for_ack
@@ -917,6 +919,7 @@ def main():
     transmit_timeout_count = 4
     ack_timeout = 10
     sequence_number_window = 2
+    spacecraft_transmit_power = 0x7D
     last_tc_packet = array.array('B', [])
     tc_packets_waiting_for_ack = []
     tm_packets_to_ack = []

@@ -78,6 +78,7 @@ def main():
     transmit_timeout_count = 4
     ack_timeout = 10
     sequence_number_window = 2
+    spacecraft_transmit_power = 125
     tm_packets_waiting_ack = []
     rx_server = 'gsss2.w4uva.org'
     tx_server = 'gsss2.w4uva.org'
@@ -263,6 +264,7 @@ def main():
                         if temp > 0:
                             expected_ground_sequence_number = temp
                         turnaround = from_bigendian(tc_packet.spp_data[9:11], 2)
+                        spacecraft_transmit_power = tc_packet.spp_data[11]
                         SppPacket.turnaround = turnaround
                         tm_packet = make_ack('TM', [])
                         tm_packet.set_sequence_number(spacecraft_sequence_number)
@@ -312,6 +314,7 @@ def main():
                         tm_data.extend(to_bigendian((spacecraft_sequence_number + 1), 2))
                         tm_data.extend(to_bigendian(expected_ground_sequence_number, 2))
                         tm_data.extend(to_bigendian(turnaround, 2))
+                        tm_data.append(spacecraft_transmit_power)
                         tm_packet.set_spp_data(tm_data)
                         tm_packet.transmit()
                         tm_packets_waiting_ack.append(tm_packet)
