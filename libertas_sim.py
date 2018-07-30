@@ -59,9 +59,10 @@ def main():
     COMMAND_GET_COMMS = 0x0C
     COMMAND_SET_MODE = 0x0A
     COMMAND_MAC_TEST = 0x0E
+    COMMAND_TIMEOUT_FAKE_PACKET = 0xFF
 
     my_packet_type = 0x08
-    their_packet_type = my_packet_type ^ 0x10
+    their_packet_type = 0x18
     serial_device_name = 'pty_ground'
     spp_header_len = 15
     spacecraft_sequence_number = 1
@@ -152,7 +153,8 @@ def main():
     q_display_packet = mp.Queue()
     SppPacket.q_display_packet = q_display_packet
 
-    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(their_packet_type, radio, q_receive_packet, logger))
+    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(their_packet_type, radio,
+                                                                                      q_receive_packet, logger))
     p_receive_packet.daemon = True
     p_receive_packet.start()
 
@@ -187,13 +189,17 @@ def main():
                 else:
                     print('Unrecognized OA command', tc_packet.command)
             else:
-                if tc_packet.validation_mask != 0:
+                if (tc_packet.validation_mask != 0) and (len(tm_packets_waiting_ack) > 0):
                     tm_packet = make_nak('TM', [])
                     tm_packet.set_sequence_number(spacecraft_sequence_number)
                     tm_packet.transmit()
                     spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
                 else:
-                    if tc_packet.command == COMMAND_ACK:
+                    print(tc_packet.command)
+                    if tc_packet.command == COMMAND_TIMEOUT_FAKE_PACKET:
+                        pass
+
+                    elif tc_packet.command == COMMAND_ACK:
                         print('Received ACK')
                         tm_packets_waiting_ack.clear()
                         doing_retransmit = False

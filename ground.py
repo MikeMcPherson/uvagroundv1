@@ -441,19 +441,22 @@ def process_received():
             if len(ax25_packet) < 48:
                 padding = 48 - len(ax25_packet)
                 ax25_packet.extend([0x00] * padding)
-            q_display_packet.put(ax25_packet)
             tm_packet = SppPacket('TM', dynamic=False)
             tm_packet.parse_ax25(ax25_packet)
+            if tm_packet.command != 0xFF:
+                q_display_packet.put(ax25_packet)
             do_transmit_packet = False
             downlink_complete = False
-            if ((tm_packet.validation_mask != 0) and (not ignore_security_trailer_error) and
-                    (len(tc_packets_waiting_for_ack) > 0)):
+            if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error) and \
+                    (len(tc_packets_waiting_for_ack) > 0):
                 do_transmit_packet = True
                 tm_packet.set_sequence_number(expected_spacecraft_sequence_number)
                 tm_packets_to_nak.append(tm_packet)
             else:
                 command = tm_packet.command
-                if command == COMMAND_CODES['ACK']:
+                if command == 0xFF:
+                    do_transmit_packet = False
+                elif command == COMMAND_CODES['ACK']:
                     tc_packets_waiting_for_ack = []
                     do_transmit_packet = False
                 elif command == COMMAND_CODES['NAK']:
@@ -902,7 +905,7 @@ def main():
 
     dump_mode = False
     my_packet_type = 0x18
-    their_packet_type = my_packet_type ^ 0x10
+    their_packet_type = 0x08
     spp_header_len = 15
     buffer_filename = ''
     ground_sequence_number = 1

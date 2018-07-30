@@ -256,9 +256,8 @@ class RadioDevice:
         else:
             self.ack_timeout_flag = False
             try:
-                rcv_string = rx_obj.recv(512)
+                rcv_string = self.rx_obj.recv(512)
             except socket.timeout:
-                print('got timeout')
                 self.ack_timeout_flag = True
                 rcv_buffer = None
             else:
@@ -294,8 +293,10 @@ def receive_packet(packet_type, radio, q_receive_packet, logger):
             q_receive_packet.put(ax25_packet)
     else:
         ax25_badpacket = array.array('B', SppPacket.ax25_header)
-        ax25_badpacket.append(packet_type)
-        ax25_badpacket.extend([0x00] * 31)
+        ax25_badpacket.extend([packet_type, 0x00, 0x1C])
+        ax25_badpacket.extend([0x00] * 10)
+        ax25_badpacket.extend([0x00, 0x01, 0xFF])
+        ax25_badpacket.extend([0x00] * 16)
         in_kiss_packet = False
         rcv_buffer = array.array('B', [])
         while True:
@@ -314,6 +315,7 @@ def receive_packet(packet_type, radio, q_receive_packet, logger):
                         if c == FEND:
                             in_kiss_packet = False
                             ax25_packet = kiss_unwrap(rcv_buffer)
+                            logger.info(ax25_packet)
                             q_receive_packet.put(ax25_packet)
                     else:
                         if c == FEND:
