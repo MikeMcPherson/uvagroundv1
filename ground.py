@@ -421,6 +421,7 @@ def process_received():
     global downlink_payloads_pending
     global transmit_timeout_count
     global ack_timeout
+    global max_retries
     global sequence_number_window
     global ignore_security_trailer_error
     global tm_packets_to_ack
@@ -431,6 +432,7 @@ def process_received():
     global dump_mode
 
     while True:
+        retry_count = 0
         ax25_packet = q_receive_packet.get()
         if ax25_packet is None:
             print('Socket closed')
@@ -449,6 +451,7 @@ def process_received():
             downlink_complete = False
             if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error) and \
                     (len(tc_packets_waiting_for_ack) > 0):
+                retry_count = max_retries + 1
                 do_transmit_packet = True
                 tm_packet.set_sequence_number(expected_spacecraft_sequence_number)
                 tm_packets_to_nak.append(tm_packet)
@@ -507,10 +510,18 @@ def process_received():
             if do_transmit_packet and (not dump_mode):
                 if (((len(tm_packets_to_ack) + len(tm_packets_to_nak)) >= SppPacket.tm_packet_window) or
                         downlink_complete):
-                    # print('In do_transmit_packet, downlink_payloads_pending =', downlink_payloads_pending,
-                    #       ',downlink_complete =', downlink_complete)
-                    # print('len(packets_to_ack) =', len(tm_packets_to_ack), ', len(packets_to_nak) =', len(tm_packets_to_nak))
                     if len(tm_packets_to_nak) > 0:
+                        retry_count = retry_count - 1
+                        if retry_count == 0:
+                            tc_packet = SppPacket('TC', dynamic=True)
+                            tc_data = array.array('B', [0x7F])
+                            tc_packet.set_spp_data(tc_data)
+                            tc_packet.set_sequence_number(ground_sequence_number)
+                            tc_packet.transmit()
+                            ground_sequence_number = sn_increment(ground_sequence_number)
+                            expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
+                            continue
+                        retry_count = 0
                         tc_packet = make_nak('TC', tm_packets_to_nak)
                         tc_packet.set_sequence_number(ground_sequence_number)
                         tc_packet.transmit()
@@ -878,6 +889,7 @@ def main():
     global doing_science_payloads
     global transmit_timeout_count
     global ack_timeout
+    global max_retries
     global sequence_number_window
     global spacecraft_transmit_power
     global last_tc_packet
@@ -894,8 +906,9 @@ def main():
     buffer_saved = False
     filedialog_save = False
     first_packet = True
-    rx_server = 'localhost'
-    tx_server = 'localhost'
+    radio_server = False
+    rx_hostname = 'localhost'
+    tx_hostname = 'localhost'
     rx_port = 9501
     tx_port = 9500
     dst_callsign = 'W4UVA '
@@ -922,7 +935,8 @@ def main():
     doing_science_payloads = False
     tm_packet_window = 1
     transmit_timeout_count = 4
-    ack_timeout = 5
+    ack_timeout = 7
+    max_retries = 4
     sequence_number_window = 2
     spacecraft_transmit_power = 0x7D
     last_tc_packet = array.array('B', [])
@@ -944,6 +958,7 @@ def main():
     gs_encryption_key = config['comms']['gs_encryption_key'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
+    autostart_radio = config['comms'].getboolean('autostart_radio')
     ignore_security_trailer_error = config['comms'].getboolean('ignore_security_trailer_error')
     uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
@@ -959,9 +974,11 @@ def main():
     if use_serial:
         gs_xcvr_uhd_pid = None
     else:
-        print('Please wait while the radio starts...')
-        gs_xcvr_uhd_pid = subprocess.Popen([gs_xcvr_uhd])
-        time.sleep(15.0)
+        if autostart_radio:
+            print('Please wait while the radio starts...')
+            gs_xcvr_uhd_pid = subprocess.Popen([gs_xcvr_uhd])
+        else:
+            gs_xcvr_uhd_pid = None
 
     ax25_header = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
     SppPacket.ax25_header = ax25_header
@@ -977,15 +994,18 @@ def main():
     SppPacket.uplink_simulated_error_rate = float(uplink_simulated_error_rate) / 100.0
     SppPacket.downlink_simulated_error_rate = float(downlink_simulated_error_rate) / 100.0
 
-    RadioDevice.rx_server = rx_server
+    RadioDevice.radio_server = radio_server
+    RadioDevice.rx_hostname = rx_hostname
     RadioDevice.rx_port = rx_port
-    RadioDevice.tx_server = tx_server
+    RadioDevice.tx_hostname = tx_hostname
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
     RadioDevice.use_serial = use_serial
+    RadioDevice.logger = logger
 
     radio = RadioDevice()
     radio.ack_timeout = ack_timeout
+    radio.max_retries = max_retries
     radio.open()
     SppPacket.radio = radio
 

@@ -79,13 +79,15 @@ def main():
     tm_packet_window = 1
     transmit_timeout_count = 4
     ack_timeout = 5
+    max_retries = 4
     sequence_number_window = 2
     spacecraft_transmit_power = 125
     tm_packets_waiting_ack = []
-    rx_server = 'gsss2.w4uva.org'
-    tx_server = 'gsss2.w4uva.org'
-    rx_port = 9501
-    tx_port = 9500
+    radio_server = True
+    rx_hostname = 'localhost'
+    tx_hostname = 'localhost'
+    rx_port = 9500
+    tx_port = 9501
     dst_callsign = 'W4UVA '
     dst_ssid = 0
     src_callsign = 'W4UVA '
@@ -137,15 +139,18 @@ def main():
     SppPacket.sc_mac_key = sc_mac_key
     SppPacket.gs_mac_key = gs_mac_key
 
-    RadioDevice.rx_server = rx_server
+    RadioDevice.radio_server = radio_server
+    RadioDevice.rx_hostname = rx_hostname
     RadioDevice.rx_port = rx_port
-    RadioDevice.tx_server = tx_server
+    RadioDevice.tx_hostname = tx_hostname
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
     RadioDevice.use_serial = use_serial
 
     radio = RadioDevice()
     radio.ack_timeout = ack_timeout
+    radio.max_retries = max_retries
+    radio.logger = logger
     radio.open()
     SppPacket.radio = radio
 

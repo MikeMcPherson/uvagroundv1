@@ -23,6 +23,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
+import sys
 import array
 import time
 from ground.chaskey import chaskey
@@ -217,28 +218,57 @@ class SppPacket:
 
 class RadioDevice:
     use_serial = None
-    rx_server = None
+    radio_server = None
+    rx_hostname = None
     rx_port = None
     rx_obj = None
-    tx_server = None
+    tx_hostname = None
     tx_port = None
     tx_obj = None
     serial_device_name = None
     ack_timeout = None
     ack_timeout_flag = None
+    max_retries = None
+    logger = None
 
     def open(self):
         if self.use_serial:
             self.rx_obj = serial.Serial(self.serial_device_name, baudrate=9600)
             self.tx_obj = self.rx_obj
         else:
-            rx_addr = (self.rx_server, self.rx_port)
-            tx_addr = (self.tx_server, self.tx_port)
-            self.rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.rx_obj.settimeout(self.ack_timeout)
-            self.rx_obj.connect(rx_addr)
-            self.tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.tx_obj.connect(tx_addr)
+            rx_addr = (self.rx_hostname, self.rx_port)
+            tx_addr = (self.tx_hostname, self.tx_port)
+            sock_rx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            rx_connected = False
+            sock_tx_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tx_connected = False
+            while not rx_connected:
+                try:
+                    if self.radio_server:
+                        sock_tx_obj.bind(tx_addr)
+                        sock_tx_obj.listen()
+                        self.tx_obj, tx_conn_addr = sock_tx_obj.accept()
+                    else:
+                        self.rx_obj = sock_rx_obj
+                        self.rx_obj.connect(rx_addr)
+                except:
+                    time.sleep(1.0)
+                else:
+                    rx_connected = True
+            while not tx_connected:
+                try:
+                    if self.radio_server:
+                        sock_rx_obj.bind(rx_addr)
+                        sock_rx_obj.listen()
+                        self.rx_obj, rx_conn_addr = sock_rx_obj.accept()
+                        self.rx_obj.settimeout(self.ack_timeout)
+                    else:
+                        self.tx_obj = sock_tx_obj
+                        self.tx_obj.connect(tx_addr)
+                except:
+                    time.sleep(1.0)
+                else:
+                    tx_connected = True
 
     def close(self):
         try:
@@ -315,7 +345,6 @@ def receive_packet(packet_type, radio, q_receive_packet, logger):
                         if c == FEND:
                             in_kiss_packet = False
                             ax25_packet = kiss_unwrap(rcv_buffer)
-                            logger.info(ax25_packet)
                             q_receive_packet.put(ax25_packet)
                     else:
                         if c == FEND:
