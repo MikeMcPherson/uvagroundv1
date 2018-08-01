@@ -34,10 +34,10 @@ import socket
 import multiprocessing as mp
 from inspect import currentframe
 import random
-from ground.packet_functions import SppPacket, RadioDevice
+from ground.packet_functions import SppPacket, RadioDevice, GsCipher
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
-from ground.packet_functions import init_ax25_header, sn_increment, sn_decrement
+from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
 
 
 def main():
@@ -133,7 +133,12 @@ def main():
             science_payload.append(random.randint(0, 255))
         q_science_payloads.put(science_payload)
 
-    ax25_header = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
+    gs_cipher = GsCipher(gs_encryption_key)
+    gs_cipher.logger = logger
+
+    ax25_header, gs_ax25_callsign, sc_ax25_callsign = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
+    ax25_badpacket = init_ax25_badpacket(ax25_header, their_packet_type)
+
     SppPacket.ax25_header = ax25_header
     SppPacket.oa_key = oa_key
     SppPacket.ground_maxsize_packets = ground_maxsize_packets
@@ -141,7 +146,10 @@ def main():
     SppPacket.sc_mac_key = sc_mac_key
     SppPacket.gs_mac_key = gs_mac_key
     SppPacket.encrypt_uplink = encrypt_uplink
-    SppPacket.gs_encryption_key = gs_encryption_key
+    SppPacket.gs_cipher = gs_cipher
+    SppPacket.gs_ax25_callsign = gs_ax25_callsign
+    SppPacket.sc_ax25_callsign = sc_ax25_callsign
+    SppPacket.logger = logger
 
     RadioDevice.radio_server = radio_server
     RadioDevice.rx_hostname = rx_hostname
@@ -162,7 +170,7 @@ def main():
     q_display_packet = mp.Queue()
     SppPacket.q_display_packet = q_display_packet
 
-    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(their_packet_type, radio,
+    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(sc_ax25_callsign, radio,
                                                                                       q_receive_packet, logger))
     p_receive_packet.daemon = True
     p_receive_packet.start()
@@ -172,6 +180,9 @@ def main():
         if ax25_packet is None:
             logger.info('Socket closed')
             exit()
+        elif ax25_packet == 0xFF:
+            ax25_packet = array.array('B', ax25_badpacket)
+
         if len(ax25_packet) < 17:
             print('Short packet')
             hexdump.hexdump(ax25_packet)
@@ -179,8 +190,6 @@ def main():
             tm_packet.set_sequence_number(spacecraft_sequence_number)
             tm_packet.transmit()
             spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
-        elif ax25_packet[16] == my_packet_type:
-            pass
         else:
             tc_packet = SppPacket('TC', dynamic=False)
             tc_packet.parse_ax25(ax25_packet)

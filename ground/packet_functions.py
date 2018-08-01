@@ -66,15 +66,20 @@ class SppPacket:
     sc_mac_key = None
     gs_mac_key = None
     encrypt_uplink = None
-    gs_encryption_key = None
+    gs_cipher = None
     tm_packet_window = None
     mac_scope = None
     validation_digest = None
     uplink_simulated_error_rate = 0.0
     downlink_simulated_error_rate = 0.0
     simulated_error = False
+    gs_ax25_callsign = False
+    sc_ax25_callsign = False
+    logger = None
 
     def __init__(self, packet_type, dynamic):
+        self.is_spp_packet = False
+        self.is_oa_packet = False
         if packet_type == 'TC':
             self.packet_type = 0x18
             self.dynamic = dynamic
@@ -86,11 +91,13 @@ class SppPacket:
         elif packet_type == 'OA':
             self.packet_type = 0
             self.dynamic = False
+            self.is_oa_packet = True
+        elif packet_type == 'UN':
+            self.packet_type = 0
+            self.dynamic = False
         else:
             self.packet_type = 0
             self.dynamic = False
-        self.is_spp_packet = False
-        self.is_oa_packet = False
         self.packet_data_length = 0
         self.gps_week, self.gps_sow = gps_time()
         self.sequence_number = 0
@@ -102,13 +109,6 @@ class SppPacket:
         self.mac_digest = array.array('B', [])
         self.spp_packet = array.array('B', [])
         self.ax25_packet = array.array('B', [])
-        self.ax25_packet_encrypted = array.array('B', [])
-        if self.encrypt_uplink and (self.packet_type == 0x18):
-            key_bytes = array.array('B', [])
-            for k in self.gs_encryption_key:
-                key_bytes.append(k)
-            key_int = int.from_bytes(key_bytes, byteorder='big', signed=False)
-            self.gs_cipher = SpeckCipher(key_int, key_size=128, block_size=64, mode='ECB')
         if self.dynamic:
             self.post()
 
@@ -122,8 +122,6 @@ class SppPacket:
             self.__ax25_wrap()
             self.__is_libertas_packet()
             self.__validate_packet()
-            if self.encrypt_uplink and (self.packet_type == 0x18):
-                self.__encrypt()
 
     @pre_post
     def set_sequence_number(self, sequence_number):
@@ -153,17 +151,18 @@ class SppPacket:
 
     def transmit(self):
         time.sleep(float(self.turnaround) / 1000.0)
+        is_oa_packet = is_oa_command(self.ax25_packet)
         if (random.random() <= self.uplink_simulated_error_rate) and (self.packet_type != 0):
             self.simulated_error = True
             ax25_packet = array.array('B', self.ax25_packet[:17])
             ax25_packet = array.array('B', [0xFF] * (len(self.ax25_packet) - 17))
         else:
-            if self.encrypt_uplink and (self.packet_type == 0x18):
-                ax25_packet = array.array('B', self.ax25_packet_encrypted)
+            if self.encrypt_uplink and (self.packet_type == 0x18) and (not is_oa_packet):
+                ax25_packet = self.gs_cipher.encrypt(self.ax25_packet)
             else:
                 ax25_packet = array.array('B', self.ax25_packet)
+        self.q_display_packet.put(self.ax25_packet)
         self.radio.transmit(ax25_packet)
-        self.q_display_packet.put(ax25_packet)
 
     def __spp_wrap(self):
         self.packet_data_length = 28 + len(self.spp_data) - 1
@@ -206,10 +205,7 @@ class SppPacket:
 
     def __is_libertas_packet(self):
         self.is_spp_packet = False
-        self.is_oa_packet = True
-        for idx, c in enumerate(self.oa_key):
-            if c != self.ax25_packet[(idx + 16)]:
-                self.is_oa_packet = False
+        self.is_oa_packet = is_oa_command(self.ax25_packet)
         if (self.ax25_packet[32] < 0x30) or (self.ax25_packet[32] > 0x34):
             self.is_oa_packet = False
         if not self.is_oa_packet:
@@ -228,31 +224,54 @@ class SppPacket:
             if v != self.validation_digest[idx]:
                 self.validation_mask = self.validation_mask | 0b00000001
 
-    def __encrypt(self):
-        ax25_packet_temp = array.array('B', self.ax25_packet[16:])
+
+def is_oa_command(ax25_packet):
+    is_oa_packet = True
+    for idx, c in enumerate(SppPacket.oa_key):
+        if c != ax25_packet[(idx + 16)]:
+            is_oa_packet = False
+    return is_oa_packet
+
+
+class GsCipher:
+    gs_speck = None
+    logger = None
+
+    def __init__(self, gs_encryption_key):
+        self.gs_encryption_key = gs_encryption_key
+        key_bytes = array.array('B', [])
+        for k in self.gs_encryption_key:
+            key_bytes.append(k)
+        key_int = int.from_bytes(key_bytes, byteorder='big', signed=False)
+        self.gs_speck = SpeckCipher(key_int, key_size=128, block_size=64, mode='ECB')
+
+
+    def encrypt(self, ax25_packet):
+        ax25_packet_encrypted = array.array('B', ax25_packet[:16])
+        ax25_packet_temp = array.array('B', ax25_packet[16:])
         padding = 8 - (len(ax25_packet_temp) % 8)
         if padding == 8:
             padding = 0
         if padding > 0:
             ax25_packet_temp.extend([0x00] * padding)
-        self.ax25_packet_encrypted = array.array('B', self.ax25_packet[:16])
         for i in range(0, len(ax25_packet_temp), 8):
             plaintext_int = int.from_bytes(ax25_packet_temp[i:(i + 8)], byteorder='big', signed=False)
-            ciphertext = self.gs_cipher.encrypt(plaintext_int)
+            ciphertext = self.gs_speck.encrypt(plaintext_int)
             ciphertext_bytes = bytearray.fromhex('{:032x}'.format(ciphertext))
             for c in ciphertext_bytes[8:]:
-                self.ax25_packet_encrypted.append(c)
+                ax25_packet_encrypted.append(c)
+        return ax25_packet_encrypted
 
-
-def decrypt(ax25_packet_encrypted):
-    ax25_packet = array.array('B', ax25_packet_encrypted[:16])
-    for i in range(0, len(ax25_packet_encrypted[16:]), 8):
-        ciphertext_int = int.from_bytes(ax25_packet_encrypted[i:(i + 8)], byteorder='big', signed=False)
-        plaintext = SppPacket.gs_cipher.decrypt(ciphertext_int)
-        plaintext_bytes = bytearray.fromhex('{:032x}'.format(plaintext))
-        for p in plaintext_bytes[8:]:
-            ax25_packet.append(p)
-    return ax25_packet
+    def decrypt(self, ax25_packet_encrypted):
+        ax25_packet = array.array('B', ax25_packet_encrypted[:16])
+        ax25_packet_temp = ax25_packet_encrypted[16:]
+        for i in range(0, len(ax25_packet_temp), 8):
+            ciphertext_int = int.from_bytes(ax25_packet_temp[i:(i + 8)], byteorder='big', signed=False)
+            plaintext = self.gs_speck.decrypt(ciphertext_int)
+            plaintext_bytes = bytearray.fromhex('{:032x}'.format(plaintext))
+            for p in plaintext_bytes[8:]:
+                ax25_packet.append(p)
+        return ax25_packet
 
 
 class RadioDevice:
@@ -348,7 +367,20 @@ class RadioDevice:
             self.tx_obj.send(xmit_packet)
 
 
-def receive_packet(packet_type, radio, q_receive_packet, logger):
+def queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger):
+    if (ax25_packet is None) or (ax25_packet == 0xFF):
+        q_receive_packet.put(ax25_packet)
+    else:
+        ax25_src_callsign = ax25_callsign(ax25_packet[7:14])
+        is_oa_packet = is_oa_command(ax25_packet)
+        if ax25_src_callsign != my_ax25_callsign:
+            if SppPacket.encrypt_uplink and (ax25_src_callsign == SppPacket.gs_ax25_callsign) and (not is_oa_packet):
+                ax25_packet_temp = SppPacket.gs_cipher.decrypt(ax25_packet)
+                ax25_packet = array.array('B', ax25_packet_temp)
+            q_receive_packet.put(ax25_packet)
+
+
+def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
     if radio.use_serial:
         while True:
             rcv_buffer = array.array('B', [])
@@ -359,26 +391,19 @@ def receive_packet(packet_type, radio, q_receive_packet, logger):
             for s in serial_buffer:
                 rcv_buffer.append(s)
             ax25_packet = lithium_unwrap(rcv_buffer)
-            if SppPacket.encrypt_uplink and (packet_type == 0x08):
-                ax25_packet_temp = SppPacket.decrypt(ax25_packet)
-                ax25_packet = array.array('B', ax25_packet_temp)
-            q_receive_packet.put(ax25_packet)
+            queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
     else:
-        ax25_badpacket = array.array('B', SppPacket.ax25_header)
-        ax25_badpacket.extend([packet_type, 0x00, 0x1C])
-        ax25_badpacket.extend([0x00] * 10)
-        ax25_badpacket.extend([0x00, 0x01, 0xFF])
-        ax25_badpacket.extend([0x00] * 16)
         in_kiss_packet = False
         rcv_buffer = array.array('B', [])
         while True:
             rcv_string = radio.receive(0)
             if radio.ack_timeout_flag:
-                q_receive_packet.put(ax25_badpacket)
+                ax25_packet = 0xFF
+                queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
                 in_kiss_packet = False
             elif rcv_string is None:
                 ax25_packet = None
-                q_receive_packet.put(ax25_packet)
+                queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
                 in_kiss_packet = False
             else:
                 for c in rcv_string:
@@ -387,10 +412,7 @@ def receive_packet(packet_type, radio, q_receive_packet, logger):
                         if c == FEND:
                             in_kiss_packet = False
                             ax25_packet = kiss_unwrap(rcv_buffer)
-                            if SppPacket.encrypt_uplink and (packet_type == 0x08):
-                                ax25_packet_temp = SppPacket.decrypt(ax25_packet)
-                                ax25_packet = array.array('B', ax25_packet_temp)
-                            q_receive_packet.put(ax25_packet)
+                            queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
                     else:
                         if c == FEND:
                             in_kiss_packet = True
@@ -480,7 +502,18 @@ def init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid):
     ax25_header.append((src_ssid << 1) | 0b01100001)
     ax25_header.append(0x03)
     ax25_header.append(0xF0)
-    return(ax25_header)
+    ax25_dst_callsign = ax25_callsign(ax25_header[0:7])
+    ax25_src_callsign = ax25_callsign(ax25_header[7:14])
+    return ax25_header, ax25_dst_callsign, ax25_src_callsign
+
+
+def init_ax25_badpacket(ax25_header, their_packet_type):
+    ax25_badpacket = array.array('B', ax25_header)
+    ax25_badpacket.extend([their_packet_type, 0x00, 0x1C])
+    ax25_badpacket.extend([0x00] * 10)
+    ax25_badpacket.extend([0x00, 0x01, 0xFF])
+    ax25_badpacket.extend([0x00] * 16)
+    return ax25_badpacket
 
 
 def ax25_callsign(b_callsign):
@@ -490,7 +523,7 @@ def ax25_callsign(b_callsign):
     c_callsign = c_callsign + '-'
     c_callsign = c_callsign + str((b_callsign[6] & 0b00011110) >> 1)
     c_callsign = c_callsign.replace(' ','')
-    return(c_callsign)
+    return c_callsign
 
 
 def spp_time_encode(gps_week, gps_sow):

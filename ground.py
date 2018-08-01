@@ -42,10 +42,10 @@ import multiprocessing as mp
 import hexdump
 import random
 from ground.constant import COMMAND_CODES, COMMAND_NAMES
-from ground.packet_functions import SppPacket, RadioDevice, kiss_wrap, kiss_unwrap
+from ground.packet_functions import SppPacket, RadioDevice, GsCipher, kiss_wrap, kiss_unwrap
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
-from ground.packet_functions import init_ax25_header, sn_increment, sn_decrement
+from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
 from ground.packet_functions import ax25_callsign
 
 """
@@ -430,6 +430,7 @@ def process_received():
     global science_payloads_per_packet
     global my_packet_type
     global dump_mode
+    global ax25_badpacket
 
     while True:
         retry_count = 0
@@ -437,75 +438,81 @@ def process_received():
         if ax25_packet is None:
             print('Socket closed')
             exit(1)
-        if (ax25_packet[16] == my_packet_type):
-            pass
+        elif ax25_packet == 0xFF:
+            ax25_packet = array.array('B', ax25_badpacket)
+
+        if len(ax25_packet) < 48:
+            padding = 48 - len(ax25_packet)
+            ax25_packet.extend([0x00] * padding)
+        tm_packet = SppPacket('TM', dynamic=False)
+        tm_packet.parse_ax25(ax25_packet)
+        if tm_packet.command != 0xFF:
+            q_display_packet.put(ax25_packet)
+        do_transmit_packet = False
+        downlink_complete = False
+        if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error) and \
+                (len(tc_packets_waiting_for_ack) > 0):
+            retry_count = max_retries + 1
+            do_transmit_packet = True
+            tm_packet.set_sequence_number(expected_spacecraft_sequence_number)
+            tm_packets_to_nak.append(tm_packet)
         else:
-            if len(ax25_packet) < 48:
-                padding = 48 - len(ax25_packet)
-                ax25_packet.extend([0x00] * padding)
-            tm_packet = SppPacket('TM', dynamic=False)
-            tm_packet.parse_ax25(ax25_packet)
-            if tm_packet.command != 0xFF:
-                q_display_packet.put(ax25_packet)
-            do_transmit_packet = False
-            downlink_complete = False
-            if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error) and \
-                    (len(tc_packets_waiting_for_ack) > 0):
-                retry_count = max_retries + 1
+            command = tm_packet.command
+            if command == 0xFF:
+                do_transmit_packet = False
+            elif command == COMMAND_CODES['ACK']:
+                tc_packets_waiting_for_ack = []
+                do_transmit_packet = False
+                downlink_complete = True
+            elif command == COMMAND_CODES['NAK']:
+                for p in tc_packets_waiting_for_ack:
+                    p.simulated_error = False
+                    p.transmit()
+                do_transmit_packet = False
+                downlink_complete = True
+            elif command == COMMAND_CODES['XMIT_COUNT']:
+                tc_packets_waiting_for_ack = []
+                health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
+                science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
                 do_transmit_packet = True
-                tm_packet.set_sequence_number(expected_spacecraft_sequence_number)
-                tm_packets_to_nak.append(tm_packet)
+                downlink_complete = True
+                tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['XMIT_HEALTH']:
+                tc_packets_waiting_for_ack = []
+                downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
+                health_payloads_available = health_payloads_available - health_payloads_per_packet
+                if downlink_payloads_pending <= 0:
+                    downlink_payloads_pending = 0
+                    downlink_complete = True
+                do_transmit_packet = True
+                if not dump_mode:
+                    tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['XMIT_SCIENCE']:
+                tc_packets_waiting_for_ack = []
+                downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
+                science_payloads_available = science_payloads_available - science_payloads_per_packet
+                if downlink_payloads_pending <= 0:
+                    downlink_payloads_pending = 0
+                    downlink_complete = True
+                do_transmit_packet = True
+                if not dump_mode:
+                    tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['READ_MEM']:
+                tc_packets_waiting_for_ack = []
+                do_transmit_packet = True
+                downlink_complete = True
+                tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['GET_COMMS']:
+                tc_packets_waiting_for_ack = []
+                do_transmit_packet = True
+                downlink_complete = True
+                tm_packets_to_ack.append(tm_packet)
+            elif command == COMMAND_CODES['MAC_TEST']:
+                tc_packets_waiting_for_ack = []
+                do_transmit_packet = False
+                downlink_complete = True
             else:
-                command = tm_packet.command
-                if command == 0xFF:
-                    do_transmit_packet = False
-                elif command == COMMAND_CODES['ACK']:
-                    tc_packets_waiting_for_ack = []
-                    do_transmit_packet = False
-                elif command == COMMAND_CODES['NAK']:
-                    for p in tc_packets_waiting_for_ack:
-                        p.simulated_error = False
-                        p.transmit()
-                    do_transmit_packet = False
-                elif command == COMMAND_CODES['XMIT_COUNT']:
-                    tc_packets_waiting_for_ack = []
-                    health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
-                    science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
-                    do_transmit_packet = True
-                    tm_packets_to_ack.append(tm_packet)
-                elif command == COMMAND_CODES['XMIT_HEALTH']:
-                    tc_packets_waiting_for_ack = []
-                    downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
-                    health_payloads_available = health_payloads_available - health_payloads_per_packet
-                    if downlink_payloads_pending <= 0:
-                        downlink_payloads_pending = 0
-                        downlink_complete = True
-                    do_transmit_packet = True
-                    if not dump_mode:
-                        tm_packets_to_ack.append(tm_packet)
-                elif command == COMMAND_CODES['XMIT_SCIENCE']:
-                    tc_packets_waiting_for_ack = []
-                    downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
-                    science_payloads_available = science_payloads_available - science_payloads_per_packet
-                    if downlink_payloads_pending <= 0:
-                        downlink_payloads_pending = 0
-                        downlink_complete = True
-                    do_transmit_packet = True
-                    if not dump_mode:
-                        tm_packets_to_ack.append(tm_packet)
-                elif command == COMMAND_CODES['READ_MEM']:
-                    tc_packets_waiting_for_ack = []
-                    do_transmit_packet = True
-                    tm_packets_to_ack.append(tm_packet)
-                elif command == COMMAND_CODES['GET_COMMS']:
-                    tc_packets_waiting_for_ack = []
-                    do_transmit_packet = True
-                    tm_packets_to_ack.append(tm_packet)
-                elif command == COMMAND_CODES['MAC_TEST']:
-                    tc_packets_waiting_for_ack = []
-                    do_transmit_packet = False
-                else:
-                    pass
+                pass
 
             if do_transmit_packet and (not dump_mode):
                 if (((len(tm_packets_to_ack) + len(tm_packets_to_nak)) >= SppPacket.tm_packet_window) or
@@ -636,11 +643,15 @@ def display_packet():
     global q_display_packet
     global health_payload_length
     global science_payload_length
+    global encrypt_uplink
+    global gs_cipher
+    global sc_ax25_callsign
+    global gs_ax25_callsign
 
     display_ax25 = False
+    values_per_row = 8
 
     if not q_display_packet.empty():
-        values_per_row = 8
         tv_header = ('    "sender":"<SENDER>", ' +
                      '"packet_type":"<PACKET_TYPE>", ' +
                      '"command":"<COMMAND>",\n')
@@ -877,6 +888,8 @@ def main():
     global q_display_packet
     global p_receive_packet
     global q_receive_packet
+    global encrypt_uplink
+    global gs_cipher
     global expected_spacecraft_sequence_number
     global health_payload_length
     global health_payloads_per_packet
@@ -901,6 +914,9 @@ def main():
     global tm_packets_to_nak
     global my_packet_type
     global dump_mode
+    global sc_ax25_callsign
+    global gs_ax25_callsign
+    global ax25_badpacket
 
     serial_device_name = 'pty_libertas'
     buffer_saved = False
@@ -980,7 +996,12 @@ def main():
         else:
             gs_xcvr_uhd_pid = None
 
-    ax25_header = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
+    gs_cipher = GsCipher(gs_encryption_key)
+    gs_cipher.logger = logger
+
+    ax25_header, sc_ax25_callsign, gs_ax25_callsign = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
+    ax25_badpacket = init_ax25_badpacket(ax25_header, their_packet_type)
+
     SppPacket.ax25_header = ax25_header
     SppPacket.oa_key = oa_key
     SppPacket.use_serial = use_serial
@@ -990,9 +1011,12 @@ def main():
     SppPacket.sc_mac_key = sc_mac_key
     SppPacket.gs_mac_key = gs_mac_key
     SppPacket.encrypt_uplink = encrypt_uplink
-    SppPacket.gs_encryption_key = gs_encryption_key
+    SppPacket.gs_cipher = gs_cipher
+    SppPacket.gs_ax25_callsign = gs_ax25_callsign
+    SppPacket.sc_ax25_callsign = sc_ax25_callsign
     SppPacket.uplink_simulated_error_rate = float(uplink_simulated_error_rate) / 100.0
     SppPacket.downlink_simulated_error_rate = float(downlink_simulated_error_rate) / 100.0
+    SppPacket.logger = logger
 
     RadioDevice.radio_server = radio_server
     RadioDevice.rx_hostname = rx_hostname
@@ -1058,7 +1082,7 @@ def main():
     Handler.filechooser2window = filechooser2window
     Handler.label11 = label11
 
-    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(their_packet_type, radio, q_receive_packet, logger))
+    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(gs_ax25_callsign, radio, q_receive_packet, logger))
     p_receive_packet.start()
     process_thread = threading.Thread(name='process_received', target=process_received, daemon=True)
     process_thread.start()
