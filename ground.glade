@@ -348,18 +348,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="button26">
-                            <property name="label" translatable="yes">MAC_TEST</property>
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <signal name="clicked" handler="on_command" swapped="no"/>
-                          </object>
-                          <packing>
-                            <property name="expand">True</property>
-                            <property name="fill">True</property>
-                            <property name="position">11</property>
-                          </packing>
+                          <placeholder/>
                         </child>
                       </object>
                       <packing>
