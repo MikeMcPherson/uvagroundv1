@@ -103,6 +103,8 @@ def main():
     sc_mac_key = config['comms']['sc_mac_key'].encode()
     gs_mac_key = config['comms']['gs_mac_key'].encode()
     oa_key = config['comms']['oa_key'].encode()
+    encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
+    gs_encryption_key = config['comms']['gs_encryption_key'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
 
@@ -138,6 +140,8 @@ def main():
     SppPacket.turnaround = turnaround
     SppPacket.sc_mac_key = sc_mac_key
     SppPacket.gs_mac_key = gs_mac_key
+    SppPacket.encrypt_uplink = encrypt_uplink
+    SppPacket.gs_encryption_key = gs_encryption_key
 
     RadioDevice.radio_server = radio_server
     RadioDevice.rx_hostname = rx_hostname
@@ -200,7 +204,6 @@ def main():
                     tm_packet.transmit()
                     spacecraft_sequence_number = sn_increment(spacecraft_sequence_number)
                 else:
-                    print(tc_packet.command)
                     if tc_packet.command == COMMAND_TIMEOUT_FAKE_PACKET:
                         pass
 

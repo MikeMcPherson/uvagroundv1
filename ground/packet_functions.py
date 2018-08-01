@@ -34,6 +34,7 @@ import hexdump
 import random
 import inspect
 from functools import wraps
+from speck import SpeckCipher
 
 
 FEND = 0xC0
@@ -101,6 +102,13 @@ class SppPacket:
         self.mac_digest = array.array('B', [])
         self.spp_packet = array.array('B', [])
         self.ax25_packet = array.array('B', [])
+        self.ax25_packet_encrypted = array.array('B', [])
+        if self.encrypt_uplink and (self.packet_type == 0x18):
+            key_bytes = array.array('B', [])
+            for k in self.gs_encryption_key:
+                key_bytes.append(k)
+            key_int = int.from_bytes(key_bytes, byteorder='big', signed=False)
+            self.gs_cipher = SpeckCipher(key_int, key_size=128, block_size=64, mode='ECB')
         if self.dynamic:
             self.post()
 
@@ -114,6 +122,8 @@ class SppPacket:
             self.__ax25_wrap()
             self.__is_libertas_packet()
             self.__validate_packet()
+            if self.encrypt_uplink and (self.packet_type == 0x18):
+                self.__encrypt()
 
     @pre_post
     def set_sequence_number(self, sequence_number):
@@ -148,7 +158,10 @@ class SppPacket:
             ax25_packet = array.array('B', self.ax25_packet[:17])
             ax25_packet = array.array('B', [0xFF] * (len(self.ax25_packet) - 17))
         else:
-            ax25_packet = array.array('B', self.ax25_packet)
+            if self.encrypt_uplink and (self.packet_type == 0x18):
+                ax25_packet = array.array('B', self.ax25_packet_encrypted)
+            else:
+                ax25_packet = array.array('B', self.ax25_packet)
         self.radio.transmit(ax25_packet)
         self.q_display_packet.put(ax25_packet)
 
@@ -214,6 +227,32 @@ class SppPacket:
         for idx, v in enumerate(self.mac_digest):
             if v != self.validation_digest[idx]:
                 self.validation_mask = self.validation_mask | 0b00000001
+
+    def __encrypt(self):
+        ax25_packet_temp = array.array('B', self.ax25_packet[16:])
+        padding = 8 - (len(ax25_packet_temp) % 8)
+        if padding == 8:
+            padding = 0
+        if padding > 0:
+            ax25_packet_temp.extend([0x00] * padding)
+        self.ax25_packet_encrypted = array.array('B', self.ax25_packet[:16])
+        for i in range(0, len(ax25_packet_temp), 8):
+            plaintext_int = int.from_bytes(ax25_packet_temp[i:(i + 8)], byteorder='big', signed=False)
+            ciphertext = self.gs_cipher.encrypt(plaintext_int)
+            ciphertext_bytes = bytearray.fromhex('{:032x}'.format(ciphertext))
+            for c in ciphertext_bytes[8:]:
+                self.ax25_packet_encrypted.append(c)
+
+
+def decrypt(ax25_packet_encrypted):
+    ax25_packet = array.array('B', ax25_packet_encrypted[:16])
+    for i in range(0, len(ax25_packet_encrypted[16:]), 8):
+        ciphertext_int = int.from_bytes(ax25_packet_encrypted[i:(i + 8)], byteorder='big', signed=False)
+        plaintext = SppPacket.gs_cipher.decrypt(ciphertext_int)
+        plaintext_bytes = bytearray.fromhex('{:032x}'.format(plaintext))
+        for p in plaintext_bytes[8:]:
+            ax25_packet.append(p)
+    return ax25_packet
 
 
 class RadioDevice:
@@ -320,6 +359,9 @@ def receive_packet(packet_type, radio, q_receive_packet, logger):
             for s in serial_buffer:
                 rcv_buffer.append(s)
             ax25_packet = lithium_unwrap(rcv_buffer)
+            if SppPacket.encrypt_uplink and (packet_type == 0x08):
+                ax25_packet_temp = SppPacket.decrypt(ax25_packet)
+                ax25_packet = array.array('B', ax25_packet_temp)
             q_receive_packet.put(ax25_packet)
     else:
         ax25_badpacket = array.array('B', SppPacket.ax25_header)
@@ -345,6 +387,9 @@ def receive_packet(packet_type, radio, q_receive_packet, logger):
                         if c == FEND:
                             in_kiss_packet = False
                             ax25_packet = kiss_unwrap(rcv_buffer)
+                            if SppPacket.encrypt_uplink and (packet_type == 0x08):
+                                ax25_packet_temp = SppPacket.decrypt(ax25_packet)
+                                ax25_packet = array.array('B', ax25_packet_temp)
                             q_receive_packet.put(ax25_packet)
                     else:
                         if c == FEND:
