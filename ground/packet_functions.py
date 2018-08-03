@@ -227,9 +227,12 @@ class SppPacket:
 
 def is_oa_command(ax25_packet):
     is_oa_packet = True
-    for idx, c in enumerate(SppPacket.oa_key):
-        if c != ax25_packet[(idx + 16)]:
-            is_oa_packet = False
+    if len(ax25_packet) >= 33:
+        for idx, c in enumerate(SppPacket.oa_key):
+            if c != ax25_packet[(idx + 16)]:
+                is_oa_packet = False
+    else:
+        is_oa_packet = False
     return is_oa_packet
 
 

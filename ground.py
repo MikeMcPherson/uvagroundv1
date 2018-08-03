@@ -945,9 +945,9 @@ def main():
     rx_port = 9501
     tx_port = 9500
     dst_callsign = 'W4UVA '
-    dst_ssid = 11
+    dst_ssid = 0
     src_callsign = 'W4UVA '
-    src_ssid = 0
+    src_ssid = 6
 
     dump_mode = False
     my_packet_type = 0x18
