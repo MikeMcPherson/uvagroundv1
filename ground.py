@@ -59,6 +59,8 @@ class Handler:
     filechooser2window = None
     label11 = None
     radio = None
+    display_spp = True
+    display_ax25 = True
 
     def on_destroy(self, *args):
         do_save = True
@@ -71,6 +73,18 @@ class Handler:
     def on_command(self, button):
         button_label = button.get_label().replace('...', '')
         process_command(button_label)
+
+    def on_show_spp(self, button):
+        if button.get_active():
+            Handler.display_spp = True
+        else:
+            Handler.display_spp = False
+
+    def on_show_ax25(self, button):
+        if button.get_active():
+            Handler.display_ax25 = True
+        else:
+            Handler.display_ax25 = False
 
     def on_dialog1_cancel(self, button):
         dialog1_cancel()
@@ -406,9 +420,8 @@ def process_command(button_label):
 
 
 """
-Process Received Packets (thread)
+Process received packets
 """
-
 
 def process_received():
     global expected_spacecraft_sequence_number
@@ -543,6 +556,7 @@ def process_received():
                     tm_packets_to_ack = []
                     tm_packets_to_nak = []
 
+
 """
 Helpers
 """
@@ -648,7 +662,6 @@ def display_packet():
     global sc_ax25_callsign
     global gs_ax25_callsign
 
-    display_ax25 = False
     values_per_row = 8
 
     if not q_display_packet.empty():
@@ -660,12 +673,12 @@ def display_packet():
                   '"gps_time":"<GPS_TIME>", ' +
                   '"sequence_number":"<SEQUENCE_NUMBER>",\n' +
                   '    "command":"<COMMAND>", ' +
-                  '"packet_data_length":"<PACKET_DATA_LENGTH>", ' +
-                  '"<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
-                  '    "<PACKET_TYPE>_data":[\n<SPP_DATA>    ],\n' +
-                  '    "simulated_error":"<SIMULATED_ERROR>",\n' +
-                  '    "security_trailer_valid":"<MAC_VALID>",\n' +
-                  '    "security_trailer":[\n<MAC_DIGEST>    ],\n')
+                  '"packet_data_length":"<PACKET_DATA_LENGTH>",\n' +
+                  '    "simulated_error":"<SIMULATED_ERROR>", ' +
+                  '"security_trailer_valid":"<MAC_VALID>",\n')
+        tv_spp_raw = ('    "<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
+                      '    "<PACKET_TYPE>_data":[\n<SPP_DATA>    ],\n' +
+                      '    "security_trailer":[\n<MAC_DIGEST>    ],\n')
 
         tv_ax25 = ('    "ax25_destination":"<AX25_DESTINATION>", ' +
                    '"ax25_source":"<AX25_SOURCE>", ' +
@@ -712,14 +725,14 @@ def display_packet():
                 tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
                 tv_header = tv_header.replace('<COMMAND>', cmd_name)
                 tv_spp = tv_spp.replace('<SENDER>', 'spacecraft')
-                tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
+                tv_spp_raw = tv_spp_raw.replace('<PACKET_TYPE>', packet_type)
             elif dp_packet.packet_type == 0x18:
                 packet_type = 'TC'
                 tv_header = tv_header.replace('<SENDER>', 'ground')
                 tv_header = tv_header.replace('<PACKET_TYPE>', packet_type)
                 tv_header = tv_header.replace('<COMMAND>', cmd_name)
                 tv_spp = tv_spp.replace('<SENDER>', 'ground')
-                tv_spp = tv_spp.replace('<PACKET_TYPE>', packet_type)
+                tv_spp_raw = tv_spp_raw.replace('<PACKET_TYPE>', packet_type)
             else:
                 packet_type = 'UNKNOWN'
                 tv_header = tv_header.replace('<SENDER>', 'UNKNOWN')
@@ -735,9 +748,9 @@ def display_packet():
                 tv_spp = tv_spp.replace('<COMMAND>', cmd_name)
 
                 tv_spp = tv_spp.replace('<PACKET_DATA_LENGTH>', "{:d}".format(dp_packet.packet_data_length))
-                tv_spp = tv_spp.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(dp_packet.spp_data)))
+                tv_spp_raw = tv_spp_raw.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(dp_packet.spp_data)))
                 packet_string = hex_tabulate(dp_packet.spp_data, values_per_row)
-                tv_spp = tv_spp.replace('<SPP_DATA>', packet_string)
+                tv_spp_raw = tv_spp_raw.replace('<SPP_DATA>', packet_string)
 
                 if dp_packet.simulated_error:
                     tv_spp = tv_spp.replace('<SIMULATED_ERROR>', 'True')
@@ -749,9 +762,11 @@ def display_packet():
                 else:
                     tv_spp = tv_spp.replace('<MAC_VALID>', 'False')
                 packet_string = hex_tabulate(dp_packet.mac_digest, values_per_row)
-                tv_spp = tv_spp.replace('<MAC_DIGEST>', packet_string)
+                tv_spp_raw = tv_spp_raw.replace('<MAC_DIGEST>', packet_string)
 
                 textview_buffer.insert(textview_buffer.get_end_iter(), tv_spp)
+                if Handler.display_spp:
+                    textview_buffer.insert(textview_buffer.get_end_iter(), tv_spp_raw)
 
                 if ((dp_packet.spp_packet[0] == 0x08) and (dp_packet.spp_data[0] == 0x03)):
                     for n in range(dp_packet.spp_data[1]):
@@ -761,7 +776,7 @@ def display_packet():
                                                        dp_packet.spp_data[payload_begin:payload_end], n)
                         textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
 
-        if display_ax25:
+        if Handler.display_ax25:
             tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(ax25_packet[0:7]))
             tv_ax25 = tv_ax25.replace('<AX25_SOURCE>', ax25_callsign(ax25_packet[7:14]))
             tv_ax25 = tv_ax25.replace('<AX25_PACKET_LENGTH>', "{:d}".format(len(ax25_packet)))
@@ -878,6 +893,8 @@ def main():
     global textview2_buffer
     global argwindow
     global filechooser2window
+    global checkbutton1
+    global checkbutton2
     global buffer_saved
     global buffer_filename
     global entry_objs
@@ -1049,6 +1066,10 @@ def main():
     argwindow = builder.get_object("dialog1")
     filechooserwindow = builder.get_object("filechooserdialog1")
     filechooser2window = builder.get_object("filechooserdialog2")
+    checkbutton1 = builder.get_object('checkbutton1')
+    checkbutton1.set_active(True)
+    checkbutton2 = builder.get_object('checkbutton2')
+    checkbutton2.set_active(True)
     entry_objs = [
         builder.get_object("entry2"),
         builder.get_object("entry3"),

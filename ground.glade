@@ -396,7 +396,7 @@
                       <object class="GtkLabel" id="label2">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Packet Display (INOP)</property>
+                        <property name="label" translatable="yes">Packet Display</property>
                         <attributes>
                           <attribute name="weight" value="ultrabold"/>
                           <attribute name="scale" value="1.3"/>
@@ -416,12 +416,14 @@
                         <property name="layout_style">start</property>
                         <child>
                           <object class="GtkCheckButton" id="checkbutton1">
-                            <property name="label" translatable="yes">Show TC/TM_Data</property>
+                            <property name="label" translatable="yes">Show TM/TC_Data</property>
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">False</property>
+                            <property name="tooltip_text" translatable="yes">Display the raw TM_Data or TC_Data packet contents in the Packets window.</property>
                             <property name="xalign">0</property>
                             <property name="draw_indicator">True</property>
+                            <signal name="toggled" handler="on_show_spp" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">True</property>
@@ -435,8 +437,10 @@
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">False</property>
+                            <property name="tooltip_text" translatable="yes">Display the raw AX.25 packet contents in the Packets window.</property>
                             <property name="xalign">0</property>
                             <property name="draw_indicator">True</property>
+                            <signal name="toggled" handler="on_show_ax25" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">True</property>
