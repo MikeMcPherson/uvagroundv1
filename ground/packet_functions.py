@@ -242,7 +242,7 @@ class GsCipher:
         key_bytes = array.array('B', [])
         for k in self.gs_encryption_key:
             key_bytes.append(k)
-        key_int = int.from_bytes(key_bytes, byteorder='big', signed=False)
+        key_int = int.from_bytes(key_bytes, byteorder='little', signed=False)
         self.gs_speck = SpeckCipher(key_int, key_size=128, block_size=64, mode='ECB')
 
 
