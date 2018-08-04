@@ -41,6 +41,7 @@ import socket
 import multiprocessing as mp
 import hexdump
 import random
+from nltk import word_tokenize
 from ground.constant import COMMAND_CODES, COMMAND_NAMES
 from ground.packet_functions import SppPacket, RadioDevice, GsCipher, kiss_wrap, kiss_unwrap
 from ground.packet_functions import receive_packet, make_ack, make_nak
@@ -55,8 +56,9 @@ GUI Handlers
 
 class Handler:
     filechooserwindow = None
-    filedialog_save = None
+    filedialog1_save = False
     filechooser2window = None
+    filedialog2_save = False
     label11 = None
     radio = None
     display_spp = True
@@ -100,11 +102,11 @@ class Handler:
 
     def on_filechooserdialog1_cancel(self, button):
         self.filechooserwindow.hide()
-        Handler.filedialog_save = False
+        Handler.filedialog1_save = False
 
     def on_filechooserdialog1_save(self, button):
         self.filechooserwindow.hide()
-        Handler.filedialog_save = True
+        Handler.filedialog1_save = True
 
     def on_load(self, button):
         load_file()
@@ -123,9 +125,11 @@ class Handler:
 
     def on_filechooserdialog2_cancel(self, button):
         self.filechooser2window.hide()
+        Handler.filedialog2_save = False
 
     def on_filechooserdialog2_open(self, button):
         self.filechooser2window.hide()
+        Handler.filedialog2_save = True
 
     def validate_entry_uint16(self, entry):
         try:
@@ -575,29 +579,6 @@ def do_destroy(do_save):
     Gtk.main_quit()
 
 
-def load_file():
-    global filechooser2window
-    global textview2_buffer
-    filechooser2window.run()
-    script_filename = filechooser2window.get_filename()
-    fp = open(script_filename, "r")
-    json_return = json.load(fp)
-    fp.close()
-    start_iter = textview2_buffer.get_start_iter()
-    end_iter = textview2_buffer.get_end_iter()
-    textview2_buffer.delete(start_iter, end_iter)
-    json_pretty = pprint.pformat(json_return['commands'])
-    end_iter = textview2_buffer.get_end_iter()
-    textview2_buffer.insert(end_iter, json_pretty, -1)
-
-
-def script_clear():
-    global textview2_buffer
-    start_iter = textview2_buffer.get_start_iter()
-    end_iter = textview2_buffer.get_end_iter()
-    textview2_buffer.delete(start_iter, end_iter)
-
-
 def save_file():
     global textview
     global buffer_saved
@@ -616,10 +597,12 @@ def save_file_as():
     time_string = time.strftime("ground%Y%m%d%H%M%S.json", time_utc)
     Handler.filechooserwindow.set_current_name(time_string)
     Handler.filechooserwindow.run()
-    if Handler.filedialog_save:
+    if Handler.filedialog1_save:
         buffer_filename = Handler.filechooserwindow.get_filename()
         write_buffer(buffer_filename)
-    buffer_saved = True
+        buffer_saved = True
+    else:
+        buffer_saved = False
 
 
 def write_buffer(buffer_filename):
@@ -638,12 +621,50 @@ def hex_tabulate(buffer, values_per_row):
         buffer_list = []
         for value in buffer[i:(i + values_per_row)]:
             buffer_list.append("\"0x{:02X}\"".format(value))
-        buffer_string = buffer_string + '        ' + ", ".join(map(str, buffer_list))
+        buffer_string = buffer_string + '    ' + ", ".join(map(str, buffer_list))
         if (buffer_len - i) > values_per_row:
             buffer_string = buffer_string + ',\n'
         else:
             buffer_string = buffer_string + '\n'
     return(buffer_string)
+
+
+"""
+Scripting
+"""
+
+def load_file():
+    global filechooser2window
+    global textview2_buffer
+    filechooser2window.run()
+    if Handler.filedialog2_save:
+        script_filename = filechooser2window.get_filename()
+        fp = open(script_filename, 'r')
+        lines = fp.readlines()
+        fp.close()
+        start_iter = textview2_buffer.get_start_iter()
+        end_iter = textview2_buffer.get_end_iter()
+        textview2_buffer.delete(start_iter, end_iter)
+        commands = []
+        for line in lines:
+            command_tokens = word_tokenize(line)
+            if len(command_tokens) > 0:
+                if command_tokens[0] != '#':
+                    command_line = (' ').join(command_tokens) + '\n'
+                    start_iter = textview2_buffer.get_end_iter()
+                    textview2_buffer.insert(start_iter, command_line, -1)
+                    end_iter = textview2_buffer.get_end_iter()
+                    commands.append([command_tokens, start_iter, end_iter])
+
+        Handler.filedialog2_save = False
+
+
+def script_clear():
+    global textview2_buffer
+    start_iter = textview2_buffer.get_start_iter()
+    end_iter = textview2_buffer.get_end_iter()
+    textview2_buffer.delete(start_iter, end_iter)
+
 
 """
 Display packet in scrolling window
@@ -665,25 +686,24 @@ def display_packet():
     values_per_row = 8
 
     if not q_display_packet.empty():
-        tv_header = ('    "sender":"<SENDER>", ' +
+        tv_header = ('  "sender":"<SENDER>", ' +
                      '"packet_type":"<PACKET_TYPE>", ' +
                      '"command":"<COMMAND>",\n')
 
-        tv_spp = ('    "gps_week":"<GPS_WEEK>", ' +
+        tv_spp = ('  "gps_week":"<GPS_WEEK>", ' +
                   '"gps_time":"<GPS_TIME>", ' +
                   '"sequence_number":"<SEQUENCE_NUMBER>",\n' +
-                  # '    "command":"<COMMAND>", ' +
-                  '    "packet_data_length":"<PACKET_DATA_LENGTH>",\n' +
-                  '    "simulated_error":"<SIMULATED_ERROR>", ' +
+                  '  "packet_data_length":"<PACKET_DATA_LENGTH>",\n' +
+                  '  "simulated_error":"<SIMULATED_ERROR>", ' +
                   '"security_trailer_valid":"<MAC_VALID>",\n')
-        tv_spp_raw = ('    "<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
-                      '    "<PACKET_TYPE>_data":[\n<SPP_DATA>    ],\n' +
-                      '    "security_trailer":[\n<MAC_DIGEST>    ],\n')
+        tv_spp_raw = ('  "<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
+                      '  "<PACKET_TYPE>_data":[\n<SPP_DATA>    ],\n' +
+                      '  "security_trailer":[\n<MAC_DIGEST>    ],\n')
 
-        tv_ax25 = ('    "ax25_destination":"<AX25_DESTINATION>", ' +
+        tv_ax25 = ('  "ax25_destination":"<AX25_DESTINATION>", ' +
                    '"ax25_source":"<AX25_SOURCE>", ' +
                    '"ax25_packet_length":"<AX25_PACKET_LENGTH>",\n' +
-                   '    "ax25_packet":[\n<AX25_PACKET>    ]\n')
+                   '  "ax25_packet":[\n<AX25_PACKET>    ]\n')
 
         ax25_packet = q_display_packet.get()
         if first_packet:
@@ -792,20 +812,20 @@ def display_packet():
 
 def payload_decode(command, payload_data, payload_number):
     science_payload_string = (
-            '    "payload<PAYLOAD_NUMBER>":{\n'
-            '        "payload_type":"SCIENCE",\n' +
-            '        "gps_time":"<GPS_TIME>", "gps_week":"<GPS_WEEK>",\n' +
-            '        "x_pos":"<X_POS>", "y_pos":"<Y_POS>", "z_pos":"<Z_POS>",\n' +
-            '        "satellites_pvt":"<SATELLITES_PVT>", "pdop":"<PDOP>",\n' +
-            '        "x_vel":"<X_VEL>", "y_vel":"<Y_VEL>", "z_vel":"<Z_VEL>",\n' +
-            '        "latitude":"<LATITUDE>", "longitude":"<LONGITUDE>",\n' +
-            '        "fix_quality":"<FIX_QUALITY>", "satellites_tracked":"<SATELLITES_TRACKED>", "hdop":"<HDOP>",\n' +
-            '        "altitude":"<ALTITUDE>",\n' +
-            '        "gx":"<GX>", "gy":"<GY>", "gz":"<GZ>",\n' +
-            '        "mx":"<MX>", "my":"<MY>", "mz":"<MZ>",\n' +
-            '        "sun_sensor_vi":"<SUN_SENSOR_VI>", "sun_sensor_i":"<SUN_SENSOR_I>", "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
-            '        "sun_sensor_iii":"<SUN_SENSOR_III>", "sun_sensor_iv":"<SUN_SENSOR_IV>", "sun_sensor_v":"<SUN_SENSOR_V>"\n' +
-            '    },\n'
+            '  "payload<PAYLOAD_NUMBER>":{\n'
+            '    "payload_type":"SCIENCE",\n' +
+            '    "gps_time":"<GPS_TIME>", "gps_week":"<GPS_WEEK>",\n' +
+            '    "x_pos":"<X_POS>", "y_pos":"<Y_POS>", "z_pos":"<Z_POS>",\n' +
+            '    "satellites_pvt":"<SATELLITES_PVT>", "pdop":"<PDOP>",\n' +
+            '    "x_vel":"<X_VEL>", "y_vel":"<Y_VEL>", "z_vel":"<Z_VEL>",\n' +
+            '    "latitude":"<LATITUDE>", "longitude":"<LONGITUDE>",\n' +
+            '    "fix_quality":"<FIX_QUALITY>", "satellites_tracked":"<SATELLITES_TRACKED>", "hdop":"<HDOP>",\n' +
+            '    "altitude":"<ALTITUDE>",\n' +
+            '    "gx":"<GX>", "gy":"<GY>", "gz":"<GZ>",\n' +
+            '    "mx":"<MX>", "my":"<MY>", "mz":"<MZ>",\n' +
+            '    "sun_sensor_vi":"<SUN_SENSOR_VI>", "sun_sensor_i":"<SUN_SENSOR_I>", "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
+            '    "sun_sensor_iii":"<SUN_SENSOR_III>", "sun_sensor_iv":"<SUN_SENSOR_IV>", "sun_sensor_v":"<SUN_SENSOR_V>"\n' +
+            '  },\n'
     )
     science_payload_fields = [
             ['<GPS_TIME>', 'GPSTIME'],
@@ -1100,7 +1120,7 @@ def main():
     appwindow.show_all()
 
     Handler.filechooserwindow = filechooserwindow
-    Handler.filedialog_save = filedialog_save
+    Handler.filedialog1_save = filedialog_save
     Handler.filechooser2window = filechooser2window
     Handler.label11 = label11
 
