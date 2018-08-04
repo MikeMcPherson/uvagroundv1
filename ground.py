@@ -100,11 +100,11 @@ class Handler:
 
     def on_filechooserdialog1_cancel(self, button):
         self.filechooserwindow.hide()
-        self.filedialog_save = False
+        Handler.filedialog_save = False
 
     def on_filechooserdialog1_save(self, button):
         self.filechooserwindow.hide()
-        self.filedialog_save = True
+        Handler.filedialog_save = True
 
     def on_load(self, button):
         load_file()
@@ -672,8 +672,8 @@ def display_packet():
         tv_spp = ('    "gps_week":"<GPS_WEEK>", ' +
                   '"gps_time":"<GPS_TIME>", ' +
                   '"sequence_number":"<SEQUENCE_NUMBER>",\n' +
-                  '    "command":"<COMMAND>", ' +
-                  '"packet_data_length":"<PACKET_DATA_LENGTH>",\n' +
+                  # '    "command":"<COMMAND>", ' +
+                  '    "packet_data_length":"<PACKET_DATA_LENGTH>",\n' +
                   '    "simulated_error":"<SIMULATED_ERROR>", ' +
                   '"security_trailer_valid":"<MAC_VALID>",\n')
         tv_spp_raw = ('    "<PACKET_TYPE>_data_length":"<SPP_DATA_LENGTH>",\n' +
@@ -745,7 +745,7 @@ def display_packet():
                 tv_spp = tv_spp.replace('<GPS_WEEK>', "{:d}".format(dp_packet.gps_week))
                 tv_spp = tv_spp.replace('<GPS_TIME>', "{:14.7f}".format(dp_packet.gps_sow))
                 tv_spp = tv_spp.replace('<SEQUENCE_NUMBER>', "{:05d}".format(dp_packet.sequence_number))
-                tv_spp = tv_spp.replace('<COMMAND>', cmd_name)
+                # tv_spp = tv_spp.replace('<COMMAND>', cmd_name)
 
                 tv_spp = tv_spp.replace('<PACKET_DATA_LENGTH>', "{:d}".format(dp_packet.packet_data_length))
                 tv_spp_raw = tv_spp_raw.replace('<SPP_DATA_LENGTH>', "{:d}".format(len(dp_packet.spp_data)))
@@ -792,7 +792,7 @@ def display_packet():
 
 def payload_decode(command, payload_data, payload_number):
     science_payload_string = (
-            '    "payload<PAYLOAD_NUMBER>":[\n'
+            '    "payload<PAYLOAD_NUMBER>":{\n'
             '        "payload_type":"SCIENCE",\n' +
             '        "gps_time":"<GPS_TIME>", "gps_week":"<GPS_WEEK>",\n' +
             '        "x_pos":"<X_POS>", "y_pos":"<Y_POS>", "z_pos":"<Z_POS>",\n' +
@@ -802,10 +802,10 @@ def payload_decode(command, payload_data, payload_number):
             '        "fix_quality":"<FIX_QUALITY>", "satellites_tracked":"<SATELLITES_TRACKED>", "hdop":"<HDOP>",\n' +
             '        "altitude":"<ALTITUDE>",\n' +
             '        "gx":"<GX>", "gy":"<GY>", "gz":"<GZ>",\n' +
-            '        "mx":"<MX>", "my":"<MY>", mz":"<MZ>",\n' +
+            '        "mx":"<MX>", "my":"<MY>", "mz":"<MZ>",\n' +
             '        "sun_sensor_vi":"<SUN_SENSOR_VI>", "sun_sensor_i":"<SUN_SENSOR_I>", "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
             '        "sun_sensor_iii":"<SUN_SENSOR_III>", "sun_sensor_iv":"<SUN_SENSOR_IV>", "sun_sensor_v":"<SUN_SENSOR_V>"\n' +
-            '    ],\n'
+            '    },\n'
     )
     science_payload_fields = [
             ['<GPS_TIME>', 'GPSTIME'],
