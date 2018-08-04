@@ -238,7 +238,10 @@ def is_oa_command(ax25_packet):
 
 class GsCipher:
     gs_speck = None
+    mode = None
     logger = None
+    iv_bytes = array.array('B', [0xAA, 0xAC, 0x82, 0x40, 0x76, 0xAE, 0x68, 0xAA])
+    iv_int = None
 
     def __init__(self, gs_encryption_key):
         self.gs_encryption_key = gs_encryption_key
@@ -246,10 +249,13 @@ class GsCipher:
         for k in self.gs_encryption_key:
             key_bytes.append(k)
         key_int = int.from_bytes(key_bytes, byteorder='little', signed=False)
-        self.gs_speck = SpeckCipher(key_int, key_size=128, block_size=64, mode='ECB')
+        self.iv_int = int.from_bytes(self.iv_bytes, byteorder='little', signed=False)
+        self.gs_speck = SpeckCipher(key_int, key_size=128, block_size=64, mode=self.mode, init=self.iv_int)
 
 
     def encrypt(self, ax25_packet):
+        if self.gs_speck.mode == 'CBC':
+            self.gs_speck.update_iv(self.iv_int)
         ax25_packet_encrypted = array.array('B', ax25_packet[:16])
         ax25_packet_temp = array.array('B', ax25_packet[16:])
         padding = 8 - (len(ax25_packet_temp) % 8)
@@ -266,6 +272,8 @@ class GsCipher:
         return ax25_packet_encrypted
 
     def decrypt(self, ax25_packet_encrypted):
+        if self.gs_speck.mode == 'CBC':
+            self.gs_speck.update_iv(self.iv_int)
         ax25_packet = array.array('B', ax25_packet_encrypted[:16])
         ax25_packet_temp = ax25_packet_encrypted[16:]
         for i in range(0, len(ax25_packet_temp), 8):

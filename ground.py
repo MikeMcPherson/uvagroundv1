@@ -1013,6 +1013,7 @@ def main():
         else:
             gs_xcvr_uhd_pid = None
 
+    GsCipher.mode = 'CBC'
     gs_cipher = GsCipher(gs_encryption_key)
     gs_cipher.logger = logger
 

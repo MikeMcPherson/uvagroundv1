@@ -89,9 +89,9 @@ def main():
     rx_port = 9500
     tx_port = 9501
     dst_callsign = 'W4UVA '
-    dst_ssid = 0
+    dst_ssid = 6
     src_callsign = 'W4UVA '
-    src_ssid = 11
+    src_ssid = 0
 
     cf = currentframe()
     config = configparser.ConfigParser()
@@ -133,6 +133,7 @@ def main():
             science_payload.append(random.randint(0, 255))
         q_science_payloads.put(science_payload)
 
+    GsCipher.mode = 'CBC'
     gs_cipher = GsCipher(gs_encryption_key)
     gs_cipher.logger = logger
 
