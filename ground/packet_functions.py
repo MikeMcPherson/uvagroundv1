@@ -237,20 +237,24 @@ def is_oa_command(ax25_packet):
 
 
 class GsCipher:
+    gs_encryption_key = None
+    gs_iv = None
     gs_speck = None
     mode = None
     logger = None
-    iv_bytes = array.array('B', [0xAA, 0xAC, 0x82, 0x40, 0x76, 0xAE, 0x68, 0xAA])
+    key_int = None
     iv_int = None
 
-    def __init__(self, gs_encryption_key):
-        self.gs_encryption_key = gs_encryption_key
+    def __init__(self):
         key_bytes = array.array('B', [])
         for k in self.gs_encryption_key:
             key_bytes.append(k)
-        key_int = int.from_bytes(key_bytes, byteorder='little', signed=False)
-        self.iv_int = int.from_bytes(self.iv_bytes, byteorder='little', signed=False)
-        self.gs_speck = SpeckCipher(key_int, key_size=128, block_size=64, mode=self.mode, init=self.iv_int)
+        self.key_int = int.from_bytes(key_bytes, byteorder='little', signed=False)
+        iv_bytes = array.array('B', [])
+        for i in self.gs_iv:
+            iv_bytes.append(i)
+        self.iv_int = int.from_bytes(iv_bytes, byteorder='little', signed=False)
+        self.gs_speck = SpeckCipher(self.key_int, key_size=128, block_size=64, mode=self.mode, init=self.iv_int)
 
 
     def encrypt(self, ax25_packet):

@@ -999,9 +999,9 @@ def main():
 
     config = configparser.ConfigParser()
     config.read(['ground.ini'])
-    debug = config['general'].getboolean('debug')
-    program_name = config['general']['program_name']
-    program_version = config['general']['program_version']
+    debug = config['ground'].getboolean('debug')
+    program_name = config['ground']['program_name']
+    program_version = config['ground']['program_version']
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
     sc_mac_key = config['comms']['sc_mac_key'].encode()
@@ -1009,6 +1009,7 @@ def main():
     oa_key = config['comms']['oa_key'].encode()
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     gs_encryption_key = config['comms']['gs_encryption_key'].encode()
+    gs_iv = config['comms']['gs_iv'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
     autostart_radio = config['comms'].getboolean('autostart_radio')
@@ -1038,7 +1039,9 @@ def main():
             gs_xcvr_uhd_pid = None
 
     GsCipher.mode = 'CBC'
-    gs_cipher = GsCipher(gs_encryption_key)
+    GsCipher.gs_encryption_key = gs_encryption_key
+    GsCipher.gs_iv = gs_iv
+    gs_cipher = GsCipher()
     gs_cipher.logger = logger
 
     ax25_header, sc_ax25_callsign, gs_ax25_callsign = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)

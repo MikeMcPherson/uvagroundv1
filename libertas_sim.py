@@ -105,6 +105,7 @@ def main():
     oa_key = config['comms']['oa_key'].encode()
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     gs_encryption_key = config['comms']['gs_encryption_key'].encode()
+    gs_iv = config['comms']['gs_iv'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
 
@@ -134,7 +135,9 @@ def main():
         q_science_payloads.put(science_payload)
 
     GsCipher.mode = 'CBC'
-    gs_cipher = GsCipher(gs_encryption_key)
+    GsCipher.gs_encryption_key = gs_encryption_key
+    GsCipher.gs_iv = gs_iv
+    gs_cipher = GsCipher()
     gs_cipher.logger = logger
 
     ax25_header, gs_ax25_callsign, sc_ax25_callsign = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
