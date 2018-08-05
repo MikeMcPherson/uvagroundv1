@@ -108,6 +108,7 @@ def main():
     gs_iv = config['comms']['gs_iv'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
+    use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
@@ -162,6 +163,7 @@ def main():
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
     RadioDevice.use_serial = use_serial
+    RadioDevice.use_lithium_cdi = use_lithium_cdi
 
     radio = RadioDevice()
     radio.ack_timeout = ack_timeout

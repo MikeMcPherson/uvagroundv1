@@ -988,7 +988,7 @@ def main():
     doing_science_payloads = False
     tm_packet_window = 1
     transmit_timeout_count = 4
-    ack_timeout = 7
+    ack_timeout = 5
     max_retries = 4
     sequence_number_window = 2
     spacecraft_transmit_power = 0x7D
@@ -1012,6 +1012,7 @@ def main():
     gs_iv = config['comms']['gs_iv'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
+    use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
     autostart_radio = config['comms'].getboolean('autostart_radio')
     ignore_security_trailer_error = config['comms'].getboolean('ignore_security_trailer_error')
     uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
@@ -1070,10 +1071,11 @@ def main():
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
     RadioDevice.use_serial = use_serial
+    RadioDevice.use_lithium_cdi = use_lithium_cdi
     RadioDevice.logger = logger
 
     radio = RadioDevice()
-    radio.ack_timeout = ack_timeout
+    radio.ack_timeout = ack_timeout * 1.25
     radio.max_retries = max_retries
     radio.open()
     SppPacket.radio = radio

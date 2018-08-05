@@ -291,6 +291,7 @@ class GsCipher:
 
 class RadioDevice:
     use_serial = None
+    use_lithium_cdi = None
     radio_server = None
     rx_hostname = None
     rx_port = None
@@ -372,7 +373,7 @@ class RadioDevice:
         return rcv_buffer
 
     def transmit(self, ax25_packet):
-        if self.use_serial:
+        if self.use_lithium_cdi:
             xmit_packet = lithium_wrap(ax25_packet)
         else:
             xmit_packet = kiss_wrap(ax25_packet)
@@ -405,7 +406,10 @@ def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
             serial_buffer = radio.receive(rcv_buffer[5] + 2)
             for s in serial_buffer:
                 rcv_buffer.append(s)
-            ax25_packet = lithium_unwrap(rcv_buffer)
+            if radio.use_lithium_cdi:
+                ax25_packet = lithium_unwrap(rcv_buffer)
+            else:
+                ax25_packet = ax25_wrap(rcv_buffer)
             queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
     else:
         in_kiss_packet = False
