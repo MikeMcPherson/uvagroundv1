@@ -1029,7 +1029,11 @@ def main():
     else:
         if autostart_radio:
             print('Please wait while the radio starts...')
+            # sb_context_id = statusbar1.get_context_id('radio')
+            # statusbar1.push(sb_context_id, 'Please wait while the radio starts...')
             gs_xcvr_uhd_pid = subprocess.Popen([gs_xcvr_uhd])
+            # time.sleep(5)
+            # statusbar1.pop(sb_context_id)
         else:
             gs_xcvr_uhd_pid = None
 
@@ -1091,6 +1095,7 @@ def main():
     checkbutton1.set_active(True)
     checkbutton2 = builder.get_object('checkbutton2')
     checkbutton2.set_active(True)
+    statusbar1 = builder.get_object('statusbar1')
     entry_objs = [
         builder.get_object("entry2"),
         builder.get_object("entry3"),
