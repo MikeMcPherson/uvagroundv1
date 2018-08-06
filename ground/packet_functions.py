@@ -258,17 +258,16 @@ class GsCipher:
             self.gs_speck.update_iv(self.iv_int)
         ax25_packet_encrypted = array.array('B', ax25_packet[:16])
         ax25_packet_temp = array.array('B', ax25_packet[16:])
-        padding = 8 - (len(ax25_packet_temp) % 8)
-        if padding == 8:
-            padding = 0
-        if padding > 0:
-            ax25_packet_temp.extend([0x00] * padding)
-        for i in range(0, len(ax25_packet_temp), 8):
+        for i in range(0, 232, 8):
             plaintext_int = int.from_bytes(ax25_packet_temp[i:(i + 8)], byteorder='big', signed=False)
             ciphertext = self.gs_speck.encrypt(plaintext_int)
             ciphertext_bytes = bytearray.fromhex('{:032x}'.format(ciphertext))
             for c in ciphertext_bytes[8:]:
                 ax25_packet_encrypted.append(c)
+        ax25_packet_encrypted.extend([0x00] * 5)
+        self.logger.info('ax25_packet_encrypted')
+        dump_string = hexdump.hexdump(ax25_packet_encrypted)
+        self.logger.info(dump_string)
         return ax25_packet_encrypted
 
     def decrypt(self, ax25_packet_encrypted):
@@ -276,7 +275,7 @@ class GsCipher:
             self.gs_speck.update_iv(self.iv_int)
         ax25_packet = array.array('B', ax25_packet_encrypted[:16])
         ax25_packet_temp = ax25_packet_encrypted[16:]
-        for i in range(0, len(ax25_packet_temp), 8):
+        for i in range(0, 232, 8):
             ciphertext_int = int.from_bytes(ax25_packet_temp[i:(i + 8)], byteorder='big', signed=False)
             plaintext = self.gs_speck.decrypt(ciphertext_int)
             plaintext_bytes = bytearray.fromhex('{:032x}'.format(plaintext))
