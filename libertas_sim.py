@@ -108,6 +108,7 @@ def main():
     gs_iv = config['comms']['gs_iv'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
+    serial_device_name = config['comms']['serial_device_name']
     use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
 
     if debug:

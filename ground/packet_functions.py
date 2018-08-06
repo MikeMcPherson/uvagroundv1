@@ -409,7 +409,7 @@ def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
             if radio.use_lithium_cdi:
                 ax25_packet = lithium_unwrap(rcv_buffer)
             else:
-                ax25_packet = ax25_wrap(rcv_buffer)
+                ax25_packet = kiss_wrap(rcv_buffer)
             queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
     else:
         in_kiss_packet = False
