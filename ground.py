@@ -955,7 +955,6 @@ def main():
     global gs_ax25_callsign
     global ax25_badpacket
 
-    serial_device_name = 'pty_libertas'
     buffer_saved = False
     filedialog_save = False
     first_packet = True
