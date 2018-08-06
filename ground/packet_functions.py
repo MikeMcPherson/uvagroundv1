@@ -300,6 +300,7 @@ class RadioDevice:
     tx_port = None
     tx_obj = None
     serial_device_name = None
+    serial_device_baudrate = None
     ack_timeout = None
     ack_timeout_flag = None
     max_retries = None
@@ -307,7 +308,7 @@ class RadioDevice:
 
     def open(self):
         if self.use_serial:
-            self.rx_obj = serial.Serial(self.serial_device_name, baudrate=9600)
+            self.rx_obj = serial.Serial(self.serial_device_name, baudrate=self.serial_device_baudrate)
             self.tx_obj = self.rx_obj
         else:
             rx_addr = (self.rx_hostname, self.rx_port)

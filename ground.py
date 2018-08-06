@@ -1013,6 +1013,7 @@ def main():
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
     serial_device_name = config['comms']['serial_device_name']
+    serial_device_baudrate = int(config['comms']['serial_device_baudrate'])
     use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
     autostart_radio = config['comms'].getboolean('autostart_radio')
     ignore_security_trailer_error = config['comms'].getboolean('ignore_security_trailer_error')
@@ -1071,6 +1072,7 @@ def main():
     RadioDevice.tx_hostname = tx_hostname
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
+    RadioDevice.serial_device_baudrate = serial_device_baudrate
     RadioDevice.use_serial = use_serial
     RadioDevice.use_lithium_cdi = use_lithium_cdi
     RadioDevice.logger = logger
