@@ -265,9 +265,9 @@ class GsCipher:
             for c in ciphertext_bytes[8:]:
                 ax25_packet_encrypted.append(c)
         ax25_packet_encrypted.extend([0x00] * 5)
-        self.logger.info('ax25_packet_encrypted')
-        dump_string = hexdump.hexdump(ax25_packet_encrypted)
-        self.logger.info(dump_string)
+        # self.logger.info('ax25_packet_encrypted')
+        # dump_string = hexdump.hexdump(ax25_packet_encrypted)
+        # self.logger.info(dump_string)
         return ax25_packet_encrypted
 
     def decrypt(self, ax25_packet_encrypted):
