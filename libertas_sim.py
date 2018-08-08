@@ -32,6 +32,7 @@ import hexdump
 import random
 import socket
 import multiprocessing as mp
+from queue import Empty
 from inspect import currentframe
 import random
 from ground.packet_functions import SppPacket, RadioDevice, GsCipher
@@ -177,7 +178,10 @@ def main():
     p_receive_packet.start()
 
     while True:
-        ax25_packet = q_receive_packet.get()
+        try:
+            ax25_packet = q_receive_packet.get(True, ack_timeout)
+        except Empty:
+            ax25_packet = 0xFF
         if ax25_packet is None:
             logger.info('Socket closed')
             exit()

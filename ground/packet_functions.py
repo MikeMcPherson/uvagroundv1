@@ -152,7 +152,7 @@ class SppPacket:
     def transmit(self):
         time.sleep(float(self.turnaround) / 1000.0)
         is_oa_packet = is_oa_command(self.ax25_packet)
-        if (random.random() <= self.uplink_simulated_error_rate) and (self.packet_type != 0):
+        if (random.random() < self.uplink_simulated_error_rate) and (self.packet_type != 0):
             self.simulated_error = True
             ax25_packet = array.array('B', self.ax25_packet[:17])
             ax25_packet = array.array('B', [0xFF] * (len(self.ax25_packet) - 17))
@@ -265,9 +265,6 @@ class GsCipher:
             for c in ciphertext_bytes[8:]:
                 ax25_packet_encrypted.append(c)
         ax25_packet_encrypted.extend([0x00] * 5)
-        # self.logger.info('ax25_packet_encrypted')
-        # dump_string = hexdump.hexdump(ax25_packet_encrypted)
-        # self.logger.info(dump_string)
         return ax25_packet_encrypted
 
     def decrypt(self, ax25_packet_encrypted):
@@ -329,7 +326,7 @@ class RadioDevice:
                         sock_rx_obj.bind(rx_addr)
                         sock_rx_obj.listen()
                         self.rx_obj, rx_conn_addr = sock_rx_obj.accept()
-                        self.rx_obj.settimeout(self.ack_timeout)
+                        # self.rx_obj.settimeout(self.ack_timeout)
                     else:
                         self.tx_obj = sock_tx_obj
                         self.tx_obj.connect(tx_addr)
@@ -407,11 +404,11 @@ def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
         rcv_buffer = array.array('B', [])
         while True:
             rcv_string = radio.receive(0)
-            if radio.ack_timeout_flag:
-                ax25_packet = 0xFF
-                queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
-                in_kiss_packet = False
-            elif rcv_string is None:
+            # if radio.ack_timeout_flag:
+            #     ax25_packet = 0xFF
+            #     queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
+            #     in_kiss_packet = False
+            if rcv_string is None:
                 ax25_packet = None
                 queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
                 in_kiss_packet = False

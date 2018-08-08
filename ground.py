@@ -39,6 +39,7 @@ import threading
 import pprint
 import socket
 import multiprocessing as mp
+from queue import Empty
 import hexdump
 import random
 from nltk import word_tokenize
@@ -451,7 +452,10 @@ def process_received():
 
     while True:
         retry_count = 0
-        ax25_packet = q_receive_packet.get()
+        try:
+            ax25_packet = q_receive_packet.get(True, ack_timeout)
+        except Empty:
+            ax25_packet = 0xFF
         if ax25_packet is None:
             print('Socket closed')
             exit(1)
