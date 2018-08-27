@@ -152,7 +152,7 @@ class SppPacket:
     def transmit(self):
         time.sleep(float(self.turnaround) / 1000.0)
         is_oa_packet = is_oa_command(self.ax25_packet)
-        if (random.random() <= self.uplink_simulated_error_rate) and (self.packet_type != 0):
+        if (random.random() < self.uplink_simulated_error_rate) and (self.packet_type != 0):
             self.simulated_error = True
             ax25_packet = array.array('B', self.ax25_packet[:17])
             ax25_packet = array.array('B', [0xFF] * (len(self.ax25_packet) - 17))
@@ -262,17 +262,13 @@ class GsCipher:
             self.gs_speck.update_iv(self.iv_int)
         ax25_packet_encrypted = array.array('B', ax25_packet[:16])
         ax25_packet_temp = array.array('B', ax25_packet[16:])
-        padding = 8 - (len(ax25_packet_temp) % 8)
-        if padding == 8:
-            padding = 0
-        if padding > 0:
-            ax25_packet_temp.extend([0x00] * padding)
-        for i in range(0, len(ax25_packet_temp), 8):
+        for i in range(0, 232, 8):
             plaintext_int = int.from_bytes(ax25_packet_temp[i:(i + 8)], byteorder='big', signed=False)
             ciphertext = self.gs_speck.encrypt(plaintext_int)
             ciphertext_bytes = bytearray.fromhex('{:032x}'.format(ciphertext))
             for c in ciphertext_bytes[8:]:
                 ax25_packet_encrypted.append(c)
+        ax25_packet_encrypted.extend([0x00] * 5)
         return ax25_packet_encrypted
 
     def decrypt(self, ax25_packet_encrypted):
@@ -280,7 +276,7 @@ class GsCipher:
             self.gs_speck.update_iv(self.iv_int)
         ax25_packet = array.array('B', ax25_packet_encrypted[:16])
         ax25_packet_temp = ax25_packet_encrypted[16:]
-        for i in range(0, len(ax25_packet_temp), 8):
+        for i in range(0, 232, 8):
             ciphertext_int = int.from_bytes(ax25_packet_temp[i:(i + 8)], byteorder='big', signed=False)
             plaintext = self.gs_speck.decrypt(ciphertext_int)
             plaintext_bytes = bytearray.fromhex('{:032x}'.format(plaintext))
@@ -336,7 +332,7 @@ class RadioDevice:
                         sock_rx_obj.bind(rx_addr)
                         sock_rx_obj.listen()
                         self.rx_obj, rx_conn_addr = sock_rx_obj.accept()
-                        self.rx_obj.settimeout(self.ack_timeout)
+                        # self.rx_obj.settimeout(self.ack_timeout)
                     else:
                         self.tx_obj = sock_tx_obj
                         self.tx_obj.connect(tx_addr)
@@ -417,11 +413,11 @@ def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
         rcv_buffer = array.array('B', [])
         while True:
             rcv_string = radio.receive(0)
-            if radio.ack_timeout_flag:
-                ax25_packet = 0xFF
-                queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
-                in_kiss_packet = False
-            elif rcv_string is None:
+            # if radio.ack_timeout_flag:
+            #     ax25_packet = 0xFF
+            #     queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
+            #     in_kiss_packet = False
+            if rcv_string is None:
                 ax25_packet = None
                 queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
                 in_kiss_packet = False
@@ -452,6 +448,13 @@ def sn_decrement(sequence_number):
     if sequence_number == 0:
         sequence_number = 1
     return(sequence_number)
+
+
+def to_int16(in_int):
+    out_int = in_int & 0x7FFF
+    if (in_int & 0x8000) != 0:
+        out_int = -out_int
+    return out_int
 
 
 def to_bigendian(input_integer, num_bytes):

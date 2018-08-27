@@ -39,6 +39,7 @@ import threading
 import pprint
 import socket
 import multiprocessing as mp
+from queue import Empty
 import hexdump
 import random
 from nltk import word_tokenize
@@ -47,7 +48,7 @@ from ground.packet_functions import SppPacket, RadioDevice, GsCipher, kiss_wrap,
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
-from ground.packet_functions import ax25_callsign
+from ground.packet_functions import ax25_callsign, to_int16
 
 """
 GUI Handlers
@@ -238,7 +239,7 @@ def process_command(button_label):
     elif button_label == 'XMIT_HEALTH':
         title = '"XMIT_HEALTH" Arguments'
         labels = ['# Packets', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['10', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
+        defaults = ['1', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
         tooltips = [
             '(8-bit) Number of Health Packets to be downlinked.  0xFF means DUMP all outstanding payloads.',
             'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
@@ -450,13 +451,14 @@ def process_received():
     global ax25_badpacket
 
     while True:
-        retry_count = 0
-        ax25_packet = q_receive_packet.get()
+        retry_count = -1
+        try:
+            ax25_packet = q_receive_packet.get(True, ack_timeout)
+        except Empty:
+            ax25_packet = array.array('B', ax25_badpacket)
         if ax25_packet is None:
             print('Socket closed')
             exit(1)
-        elif ax25_packet == 0xFF:
-            ax25_packet = array.array('B', ax25_badpacket)
 
         if len(ax25_packet) < 48:
             padding = 48 - len(ax25_packet)
@@ -467,11 +469,12 @@ def process_received():
             q_display_packet.put(ax25_packet)
         do_transmit_packet = False
         downlink_complete = False
-        if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error) and \
-                (len(tc_packets_waiting_for_ack) > 0):
-            retry_count = max_retries + 1
-            do_transmit_packet = True
+        if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
+            if retry_count < 0:
+                retry_count = max_retries + 1
+            # do_transmit_packet = True
             tm_packet.set_sequence_number(expected_spacecraft_sequence_number)
+            expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
             tm_packets_to_nak.append(tm_packet)
         else:
             command = tm_packet.command
@@ -479,6 +482,7 @@ def process_received():
                 do_transmit_packet = False
             elif command == COMMAND_CODES['ACK']:
                 tc_packets_waiting_for_ack = []
+                expected_spacecraft_sequence_number = sn_increment(tm_packet.sequence_number)
                 do_transmit_packet = False
                 downlink_complete = True
             elif command == COMMAND_CODES['NAK']:
@@ -489,6 +493,7 @@ def process_received():
                 downlink_complete = True
             elif command == COMMAND_CODES['XMIT_COUNT']:
                 tc_packets_waiting_for_ack = []
+                expected_spacecraft_sequence_number = sn_increment(tm_packet.sequence_number)
                 health_payloads_available = from_bigendian(tm_packet.spp_data[1:3], 2)
                 science_payloads_available = from_bigendian(tm_packet.spp_data[3:5], 2)
                 do_transmit_packet = True
@@ -496,6 +501,7 @@ def process_received():
                 tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['XMIT_HEALTH']:
                 tc_packets_waiting_for_ack = []
+                expected_spacecraft_sequence_number = sn_increment(tm_packet.sequence_number)
                 downlink_payloads_pending = downlink_payloads_pending - health_payloads_per_packet
                 health_payloads_available = health_payloads_available - health_payloads_per_packet
                 if downlink_payloads_pending <= 0:
@@ -506,6 +512,7 @@ def process_received():
                     tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['XMIT_SCIENCE']:
                 tc_packets_waiting_for_ack = []
+                expected_spacecraft_sequence_number = sn_increment(tm_packet.sequence_number)
                 downlink_payloads_pending = downlink_payloads_pending - science_payloads_per_packet
                 science_payloads_available = science_payloads_available - science_payloads_per_packet
                 if downlink_payloads_pending <= 0:
@@ -516,16 +523,19 @@ def process_received():
                     tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['READ_MEM']:
                 tc_packets_waiting_for_ack = []
+                expected_spacecraft_sequence_number = sn_increment(tm_packet.sequence_number)
                 do_transmit_packet = True
                 downlink_complete = True
                 tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['GET_COMMS']:
                 tc_packets_waiting_for_ack = []
+                expected_spacecraft_sequence_number = sn_increment(tm_packet.sequence_number)
                 do_transmit_packet = True
                 downlink_complete = True
                 tm_packets_to_ack.append(tm_packet)
             elif command == COMMAND_CODES['MAC_TEST']:
                 tc_packets_waiting_for_ack = []
+                expected_spacecraft_sequence_number = sn_increment(tm_packet.sequence_number)
                 do_transmit_packet = False
                 downlink_complete = True
             else:
@@ -543,20 +553,17 @@ def process_received():
                             tc_packet.set_sequence_number(ground_sequence_number)
                             tc_packet.transmit()
                             ground_sequence_number = sn_increment(ground_sequence_number)
-                            expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
+                            retry_count = -1
                             continue
-                        retry_count = 0
                         tc_packet = make_nak('TC', tm_packets_to_nak)
                         tc_packet.set_sequence_number(ground_sequence_number)
                         tc_packet.transmit()
                         ground_sequence_number = sn_increment(ground_sequence_number)
-                        expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
                     else:
                         tc_packet = make_ack('TC', [])
                         tc_packet.set_sequence_number(ground_sequence_number)
                         tc_packet.transmit()
                         ground_sequence_number = sn_increment(ground_sequence_number)
-                        expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
                     tm_packets_to_ack = []
                     tm_packets_to_nak = []
 
@@ -788,13 +795,22 @@ def display_packet():
                 if Handler.display_spp:
                     textview_buffer.insert(textview_buffer.get_end_iter(), tv_spp_raw)
 
-                if ((dp_packet.spp_packet[0] == 0x08) and (dp_packet.spp_data[0] == 0x03)):
-                    for n in range(dp_packet.spp_data[1]):
-                        payload_begin = 2 + (science_payload_length * n)
-                        payload_end = payload_begin + science_payload_length
-                        packet_string = payload_decode(dp_packet.spp_data[0],
-                                                       dp_packet.spp_data[payload_begin:payload_end], n)
-                        textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
+                if dp_packet.spp_packet[0] == 0x08:
+                    if dp_packet.spp_data[0] == 0x03:
+                        for n in range(dp_packet.spp_data[1]):
+                            payload_begin = 2 + (science_payload_length * n)
+                            payload_end = payload_begin + science_payload_length
+                            packet_string = payload_decode(dp_packet.spp_data[0],
+                                                           dp_packet.spp_data[payload_begin:payload_end], n)
+                    elif dp_packet.spp_data[0] == 0x02:
+                        for n in range(1):
+                            payload_begin = 2 + (health_payload_length * n)
+                            payload_end = payload_begin + health_payload_length
+                            packet_string = payload_decode(dp_packet.spp_data[0],
+                                                           dp_packet.spp_data[payload_begin:payload_end], n)
+                    else:
+                        packet_string = ''
+                    textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
 
         if Handler.display_ax25:
             tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(ax25_packet[0:7]))
@@ -828,75 +844,154 @@ def payload_decode(command, payload_data, payload_number):
             '  },\n'
     )
     science_payload_fields = [
-            ['<GPS_TIME>', 'GPSTIME'],
-            ['<GPS_WEEK>', 'UINT16'],
-            ['<X_POS>', 'UINT32'],
-            ['<Y_POS>', 'UINT32'],
-            ['<Z_POS>', 'UINT32'],
-            ['<SATELLITES_PVT>', 'UINT8'],
-            ['<PDOP>', 'DOP'],
-            ['<X_VEL>', 'UINT16'],
-            ['<Y_VEL>', 'UINT16'],
-            ['<Z_VEL>', 'UINT16'],
-            ['<LATITUDE>', 'LATLON'],
-            ['<LONGITUDE>', 'LATLON'],
-            ['<FIX_QUALITY>', 'UINT8'],
-            ['<SATELLITES_TRACKED>', 'UINT8'],
-            ['<HDOP>', 'DOP'],
-            ['<ALTITUDE>', 'UINT32'],
-            ['<GX>', 'UINT16'],
-            ['<GY>', 'UINT16'],
-            ['<GZ>', 'UINT16'],
-            ['<MX>', 'UINT16'],
-            ['<MY>', 'UINT16'],
-            ['<MZ>', 'UINT16'],
-            ['<SUN_SENSOR_VI>', 'UINT16'],
-            ['<SUN_SENSOR_I>', 'UINT16'],
-            ['<SUN_SENSOR_II>', 'UINT16'],
-            ['<SUN_SENSOR_III>', 'UINT16'],
-            ['<SUN_SENSOR_IV>', 'UINT16'],
-            ['<SUN_SENSOR_V>', 'UINT16']
-        ]
+            ['<GPS_TIME>', 'GPSTIME', 1, 0],
+            ['<GPS_WEEK>', 'UINT16', 1, 0],
+            ['<X_POS>', 'UINT32', 1, 0],
+            ['<Y_POS>', 'UINT32', 1, 0],
+            ['<Z_POS>', 'UINT32', 1, 0],
+            ['<SATELLITES_PVT>', 'UINT8', 1, 0],
+            ['<PDOP>', 'DOP', 1, 0],
+            ['<X_VEL>', 'UINT16', 1, 0],
+            ['<Y_VEL>', 'UINT16', 1, 0],
+            ['<Z_VEL>', 'UINT16', 1, 0],
+            ['<LATITUDE>', 'LATLON', 1, 0],
+            ['<LONGITUDE>', 'LATLON', 1, 0],
+            ['<FIX_QUALITY>', 'UINT8', 1, 0],
+            ['<SATELLITES_TRACKED>', 'UINT8', 1, 0],
+            ['<HDOP>', 'DOP', 1, 0],
+            ['<ALTITUDE>', 'UINT32', 1, 0],
+            ['<GX>', 'INT16', 1, 0],
+            ['<GY>', 'INT16', 1, 0],
+            ['<GZ>', 'INT16', 1, 0],
+            ['<MX>', 'INT16', 1, 0],
+            ['<MY>', 'INT16', 1, 0],
+            ['<MZ>', 'INT16', 1, 0],
+            ['<SUN_SENSOR_VI>', 'UINT16', 1, 0],
+            ['<SUN_SENSOR_I>', 'UINT16', 1, 0],
+            ['<SUN_SENSOR_II>', 'UINT16', 1, 0],
+            ['<SUN_SENSOR_III>', 'UINT16', 1, 0],
+            ['<SUN_SENSOR_IV>', 'UINT16', 1, 0],
+            ['<SUN_SENSOR_V>', 'UINT16', 1, 0]
+    ]
+    health_payload_string = (
+            '  "payload-01":"payload_type":"HEALTH",\n' +
+            '    "BROWNOUT_RESETS":"<BROWNOUT_RESETS>", "AUTO_RESETS":"<AUTO_RESETS>",\n' +
+            '    "MANUAL_RESETS":"<MANUAL_RESETS>", "WATCHDOG_RESETS":"<WATCHDOG_RESETS>",\n' +
+            '    "IIDIODE_OUT":"<IIDIODE_OUT>", "VIDIODE_OUT":"<VIDIODE_OUT>",\n' +
+            '    "I3V3_DRW":"<I3V3_DRW>", "I5V_DRW":"<I5V_DRW>",\n' +
+            '    "IPCM12V":"<IPCM12V>", "VPCM12V":"<VPCM12V>",\n' +
+            '    "IPCMBATV":"<IPCMBATV>", "VPCKBATV":"<VPCKBATV>",\n' +
+            '    "IPCM5V":"<IPCM5V>", "VPCM5V":"<VPCM5V>",\n' +
+            '    "IPCM3V3":"<IPCM3V3>", "VPCM3V3":"<VPCM3V3>",\n' +
+            '    "TBRD":"<TBRD>",\n' +
+            '    "VBCR1":"<VBCR1>", "IBCR1A":"<IBCR1A>", "IBCR1B":"<IBCR1B>",\n' +
+            '    "VBCR2":"<VBCR2>", "IBCR2A":"<IBCR2A>", "IBCR2B":"<IBCR2B>",\n' +
+            '    "VBCR3":"<VBCR3>", "IBCR3A":"<IBCR3A>", "IBCR3B":"<IBCR3B>",\n' +
+            '    "VBCR4":"<VBCR4>", "IBCR4A":"<IBCR4A>", "IBCR4B":"<IBCR4B>",\n' +
+            '    "ANTENNA_STATUS":"<ANTENNA_STATUS>",\n' +
+            '  },\n'
+    )
+    health_payload_fields = [
+        ['<BROWNOUT_RESETS>', 'UINT16', 1, 0],
+        ['<AUTO_RESETS>', 'UINT16', 1, 0],
+        ['<MANUAL_RESETS>', 'UINT16', 1, 0],
+        ['<WATCHDOG_RESETS>', 'UINT16', 1, 0],
+        ['<IIDIODE_OUT>', 'FLOAT16', 14.662757, 0.0],
+        ['<VIDIODE_OUT>', 'FLOAT16', 0.008993157, 0.0],
+        ['<I3V3_DRW>', 'FLOAT16', 0.001327547, 0.0],
+        ['<I5V_DRW>', 'FLOAT16', 0.001327547, 0.0],
+        ['<IPCM12V>', 'FLOAT16', 0.00207, 0.0],
+        ['<VPCM12V>', 'FLOAT16', 0.01349, 0.0],
+        ['<IPCMBATV>', 'FLOAT16', 0.005237, 0.0],
+        ['<VPCKBATV>', 'FLOAT16', 0.008978, 0.0],
+        ['<IPCM5V>', 'FLOAT16', 0.005237, 0.0],
+        ['<VPCM5V>', 'FLOAT16', 0.005865, 0.0],
+        ['<IPCM3V3>', 'FLOAT16', 0.005237, 0.0],
+        ['<VPCM3V3>', 'FLOAT16', 0.004311, 0.0],
+        ['<TBRD>', 'FLOAT16', 0.372434, -273.15],
+        ['<VBCR1>', 'FLOAT16', 0.009971, 0.0],
+        ['<IBCR1A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<IBCR1B>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<VBCR2>', 'FLOAT16', 0.009971, 0.0],
+        ['<IBCR2A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<IBCR2B>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<VBCR3>', 'FLOAT16', 0.009971, 0.0],
+        ['<IBCR3A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<IBCR3B>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<VBCR4>', 'FLOAT16', 0.009971, 0.0],
+        ['<IBCR4A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<IBCR4B>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<ANTENNA_STATUS>', 'HEX8', 1, 0]
+    ]
     if command == COMMAND_CODES['XMIT_SCIENCE']:
-        idx = 0
         payload_string = science_payload_string
         payload_string = payload_string.replace('<PAYLOAD_NUMBER>', "{:1d}".format(payload_number))
-        for field in science_payload_fields:
-            if field[1] == 'LATLON':
-                field_value = from_fake_float(from_bigendian(payload_data[idx:(idx + 2)], 2),
-                               from_bigendian(payload_data[(idx + 2):(idx + 6)], 4))
-                if (payload_data[(idx + 6)] == 'S') or (payload_data[(idx + 6)] == 'W'):
-                    field_value = -field_value
-                payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
-                idx = idx + 7
-            elif field[1] == 'DOP':
-                field_value = from_fake_float(payload_data[idx],
-                               from_bigendian(payload_data[(idx + 1):(idx + 5)], 4))
-                payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
-                idx = idx + 5
-            elif field[1] == 'GPSTIME':
-                field_value = from_fake_float(from_bigendian(payload_data[idx:(idx + 4)], 4),
-                               from_bigendian(payload_data[(idx + 4):(idx + 8)], 4))
-                payload_string = payload_string.replace(field[0], "{:14.7f}".format(field_value))
-                idx = idx + 8
-            elif field[1] == 'UINT32':
-                field_value = int(from_bigendian(payload_data[idx:(idx + 4)], 4))
-                payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
-                idx = idx + 4
-            elif field[1] == 'UINT16':
-                field_value = int(from_bigendian(payload_data[idx:(idx + 2)], 2))
-                payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
-                idx = idx + 2
-            elif field[1] == 'UINT8':
-                field_value = int(payload_data[idx])
-                payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
-                idx = idx + 1
-            else:
-                field_value = 0
-                payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
-                print('Bad Science Field Name')
+        payload_fields = science_payload_fields
+    elif command == COMMAND_CODES['XMIT_HEALTH']:
+        payload_string = health_payload_string
+        payload_fields = health_payload_fields
     else:
         payload_string = ''
+        payload_fields = []
+    idx = 0
+    for field in payload_fields:
+        if field[1] == 'LATLON':
+            deg_min_int = from_bigendian(payload_data[idx:(idx + 2)], 2)
+            deg_int = int(deg_min_int / 100.0)
+            min_int = deg_min_int - (deg_int * 100)
+            min_frac = from_bigendian(payload_data[(idx + 2):(idx + 6)], 4)
+            field_value = deg_int + ((min_int + min_frac) / 60.0)
+            if (payload_data[(idx + 6)] == 'S') or (payload_data[(idx + 6)] == 'W'):
+                field_value = -field_value
+            payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
+            idx = idx + 7
+        elif field[1] == 'DOP':
+            field_value = from_fake_float(payload_data[idx],
+                                          from_bigendian(payload_data[(idx + 1):(idx + 5)], 4))
+            payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
+            idx = idx + 5
+        elif field[1] == 'GPSTIME':
+            field_value = from_fake_float(from_bigendian(payload_data[idx:(idx + 4)], 4),
+                                          from_bigendian(payload_data[(idx + 4):(idx + 8)], 4))
+            payload_string = payload_string.replace(field[0], "{:14.7f}".format(field_value))
+            idx = idx + 8
+        elif field[1] == 'FLOAT16':
+            field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
+            payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
+            idx = idx + 2
+        elif field[1] == 'INT16':
+            field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
+            field_value = to_int16(field_value)
+            payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+            idx = idx + 2
+        elif field[1] == 'UINT32':
+            field_value = (int(from_bigendian(payload_data[idx:(idx + 4)], 4)) * field[2]) + field[3]
+            payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+            idx = idx + 4
+        elif field[1] == 'UINT16':
+            field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
+            payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+            idx = idx + 2
+        elif field[1] == 'UINT8':
+            field_value = (int(payload_data[idx]) * field[2]) + field[3]
+            payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+            idx = idx + 1
+        elif field[1] == 'HEX32':
+            field_value = (int(from_bigendian(payload_data[idx:(idx + 4)], 4)) * field[2]) + field[3]
+            payload_string = payload_string.replace(field[0], "0x{:08X}".format(field_value))
+            idx = idx + 2
+        elif field[1] == 'HEX16':
+            field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
+            payload_string = payload_string.replace(field[0], "0x{:04X}".format(field_value))
+            idx = idx + 2
+        elif field[1] == 'HEX8':
+            field_value = (int(payload_data[idx]) * field[2]) + field[3]
+            payload_string = payload_string.replace(field[0], "0x{:02X}".format(field_value))
+            idx = idx + 1
+        else:
+            field_value = 0
+            payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+            print('Bad Field Name')
     return (payload_string)
 
 
@@ -976,7 +1071,7 @@ def main():
     ground_sequence_number = 1
     expected_spacecraft_sequence_number = 0
     spacecraft_sequence_numbers = []
-    health_payload_length = 46
+    health_payload_length = 59
     health_payloads_per_packet = 4
     health_payloads_available = 1
     doing_health_payloads = False
