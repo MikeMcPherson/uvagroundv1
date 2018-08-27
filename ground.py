@@ -441,7 +441,6 @@ def process_received():
     global ack_timeout
     global max_retries
     global sequence_number_window
-    global ignore_security_trailer_error
     global tm_packets_to_ack
     global tm_packets_to_nak
     global health_payloads_per_packet
@@ -450,8 +449,10 @@ def process_received():
     global dump_mode
     global ax25_badpacket
 
+    tm_packets_to_ack = []
+    tm_packets_to_nak = []
+    retry_count = -1
     while True:
-        retry_count = -1
         try:
             ax25_packet = q_receive_packet.get(True, ack_timeout)
         except Empty:
@@ -460,6 +461,8 @@ def process_received():
             print('Socket closed')
             exit(1)
 
+        do_transmit_packet = False
+        downlink_complete = False
         if len(ax25_packet) < 48:
             padding = 48 - len(ax25_packet)
             ax25_packet.extend([0x00] * padding)
@@ -467,15 +470,13 @@ def process_received():
         tm_packet.parse_ax25(ax25_packet)
         if tm_packet.command != 0xFF:
             q_display_packet.put(ax25_packet)
-        do_transmit_packet = False
-        downlink_complete = False
-        if (tm_packet.validation_mask != 0) and (not ignore_security_trailer_error):
+        if (tm_packet.validation_mask != 0) and (tm_packet.command != 0xFF):
             if retry_count < 0:
                 retry_count = max_retries + 1
-            # do_transmit_packet = True
             tm_packet.set_sequence_number(expected_spacecraft_sequence_number)
             expected_spacecraft_sequence_number = sn_increment(expected_spacecraft_sequence_number)
-            tm_packets_to_nak.append(tm_packet)
+            if not dump_mode:
+                tm_packets_to_nak.append(tm_packet)
         else:
             command = tm_packet.command
             if command == 0xFF:
@@ -560,6 +561,7 @@ def process_received():
                         tc_packet.transmit()
                         ground_sequence_number = sn_increment(ground_sequence_number)
                     else:
+                        retry_count = -1
                         tc_packet = make_ack('TC', [])
                         tc_packet.set_sequence_number(ground_sequence_number)
                         tc_packet.transmit()
@@ -1041,7 +1043,6 @@ def main():
     global first_packet
     global tc_packets_waiting_for_ack
     global gs_xcvr_uhd_pid
-    global ignore_security_trailer_error
     global tm_packets_to_ack
     global tm_packets_to_nak
     global my_packet_type
@@ -1107,7 +1108,6 @@ def main():
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
     autostart_radio = config['comms'].getboolean('autostart_radio')
-    ignore_security_trailer_error = config['comms'].getboolean('ignore_security_trailer_error')
     uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
 
