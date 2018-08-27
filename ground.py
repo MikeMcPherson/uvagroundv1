@@ -803,7 +803,7 @@ def display_packet():
                             packet_string = payload_decode(dp_packet.spp_data[0],
                                                            dp_packet.spp_data[payload_begin:payload_end], n)
                     elif dp_packet.spp_data[0] == 0x02:
-                        for n in range(dp_packet.spp_data[1]):
+                        for n in range(1):
                             payload_begin = 2 + (health_payload_length * n)
                             payload_end = payload_begin + health_payload_length
                             packet_string = payload_decode(dp_packet.spp_data[0],
@@ -860,12 +860,12 @@ def payload_decode(command, payload_data, payload_number):
             ['<SATELLITES_TRACKED>', 'UINT8', 1, 0],
             ['<HDOP>', 'DOP', 1, 0],
             ['<ALTITUDE>', 'UINT32', 1, 0],
-            ['<GX>', 'UINT16', 1, 0],
-            ['<GY>', 'UINT16', 1, 0],
-            ['<GZ>', 'UINT16', 1, 0],
-            ['<MX>', 'UINT16', 1, 0],
-            ['<MY>', 'UINT16', 1, 0],
-            ['<MZ>', 'UINT16', 1, 0],
+            ['<GX>', 'INT16', 1, 0],
+            ['<GY>', 'INT16', 1, 0],
+            ['<GZ>', 'INT16', 1, 0],
+            ['<MX>', 'INT16', 1, 0],
+            ['<MY>', 'INT16', 1, 0],
+            ['<MZ>', 'INT16', 1, 0],
             ['<SUN_SENSOR_VI>', 'UINT16', 1, 0],
             ['<SUN_SENSOR_I>', 'UINT16', 1, 0],
             ['<SUN_SENSOR_II>', 'UINT16', 1, 0],
@@ -910,17 +910,17 @@ def payload_decode(command, payload_data, payload_number):
         ['<VPCM3V3>', 'FLOAT16', 0.004311, 0.0],
         ['<TBRD>', 'FLOAT16', 0.372434, -273.15],
         ['<VBCR1>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR1A>', 'FLOAT16', 0.977517107, 0.0],
-        ['<IBCR1B>', 'FLOAT16', 0.977517107, 0.0],
+        ['<IBCR1A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<IBCR1B>', 'FLOAT16', 0.000977517107, 0.0],
         ['<VBCR2>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR2A>', 'FLOAT16', 0.977517107, 0.0],
-        ['<IBCR2B>', 'FLOAT16', 0.977517107, 0.0],
+        ['<IBCR2A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<IBCR2B>', 'FLOAT16', 0.000977517107, 0.0],
         ['<VBCR3>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR3A>', 'FLOAT16', 0.977517107, 0.0],
-        ['<IBCR3B>', 'FLOAT16', 0.977517107, 0.0],
+        ['<IBCR3A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<IBCR3B>', 'FLOAT16', 0.000977517107, 0.0],
         ['<VBCR4>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR4A>', 'FLOAT16', 0.977517107, 0.0],
-        ['<IBCR4B>', 'FLOAT16', 0.977517107, 0.0],
+        ['<IBCR4A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<IBCR4B>', 'FLOAT16', 0.000977517107, 0.0],
         ['<ANTENNA_STATUS>', 'HEX8', 1, 0]
     ]
     if command == COMMAND_CODES['XMIT_SCIENCE']:
@@ -955,6 +955,12 @@ def payload_decode(command, payload_data, payload_number):
         elif field[1] == 'FLOAT16':
             field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
             payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
+            idx = idx + 2
+        elif field[1] == 'INT16':
+            field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
+            if field_value > 32767:
+                field_value = field_value - 65535
+            payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
             idx = idx + 2
         elif field[1] == 'UINT32':
             field_value = (int(from_bigendian(payload_data[idx:(idx + 4)], 4)) * field[2]) + field[3]
