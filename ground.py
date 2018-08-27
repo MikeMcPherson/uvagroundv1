@@ -48,7 +48,7 @@ from ground.packet_functions import SppPacket, RadioDevice, GsCipher, kiss_wrap,
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
-from ground.packet_functions import ax25_callsign
+from ground.packet_functions import ax25_callsign, to_int16
 
 """
 GUI Handlers
@@ -936,8 +936,11 @@ def payload_decode(command, payload_data, payload_number):
     idx = 0
     for field in payload_fields:
         if field[1] == 'LATLON':
-            field_value = from_fake_float(from_bigendian(payload_data[idx:(idx + 2)], 2),
-                                          from_bigendian(payload_data[(idx + 2):(idx + 6)], 4))
+            deg_min_int = from_bigendian(payload_data[idx:(idx + 2)], 2)
+            deg_int = int(deg_min_int / 100.0)
+            min_int = deg_min_int - (deg_int * 100)
+            min_frac = from_bigendian(payload_data[(idx + 2):(idx + 6)], 4)
+            field_value = deg_int + ((min_int + min_frac) / 60.0)
             if (payload_data[(idx + 6)] == 'S') or (payload_data[(idx + 6)] == 'W'):
                 field_value = -field_value
             payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
@@ -958,8 +961,7 @@ def payload_decode(command, payload_data, payload_number):
             idx = idx + 2
         elif field[1] == 'INT16':
             field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
-            if field_value > 32767:
-                field_value = field_value - 65535
+            field_value = to_int16(field_value)
             payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
             idx = idx + 2
         elif field[1] == 'UINT32':

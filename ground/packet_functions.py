@@ -441,6 +441,13 @@ def sn_decrement(sequence_number):
     return(sequence_number)
 
 
+def to_int16(in_int):
+    out_int = in_int & 0x7FFF
+    if (in_int & 0x8000) != 0:
+        out_int = -out_int
+    return out_int
+
+
 def to_bigendian(input_integer, num_bytes):
     output_bigendian = array.array('B', [])
     if num_bytes == 4:
