@@ -48,7 +48,7 @@ from ground.packet_functions import SppPacket, RadioDevice, GsCipher, kiss_wrap,
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
-from ground.packet_functions import ax25_callsign, to_int16
+from ground.packet_functions import ax25_callsign, to_int16, to_int32
 
 """
 GUI Handlers
@@ -804,15 +804,16 @@ def display_packet():
                             payload_end = payload_begin + science_payload_length
                             packet_string = payload_decode(dp_packet.spp_data[0],
                                                            dp_packet.spp_data[payload_begin:payload_end], n)
+                            textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
                     elif dp_packet.spp_data[0] == 0x02:
                         for n in range(1):
                             payload_begin = 2 + (health_payload_length * n)
                             payload_end = payload_begin + health_payload_length
                             packet_string = payload_decode(dp_packet.spp_data[0],
                                                            dp_packet.spp_data[payload_begin:payload_end], n)
+                            textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
                     else:
                         packet_string = ''
-                    textview_buffer.insert(textview_buffer.get_end_iter(), packet_string)
 
         if Handler.display_ax25:
             tv_ax25 = tv_ax25.replace('<AX25_DESTINATION>', ax25_callsign(ax25_packet[0:7]))
@@ -848,14 +849,14 @@ def payload_decode(command, payload_data, payload_number):
     science_payload_fields = [
             ['<GPS_TIME>', 'GPSTIME', 1, 0],
             ['<GPS_WEEK>', 'UINT16', 1, 0],
-            ['<X_POS>', 'UINT32', 1, 0],
-            ['<Y_POS>', 'UINT32', 1, 0],
-            ['<Z_POS>', 'UINT32', 1, 0],
+            ['<X_POS>', 'INT32', 1, 0],
+            ['<Y_POS>', 'INT32', 1, 0],
+            ['<Z_POS>', 'INT32', 1, 0],
             ['<SATELLITES_PVT>', 'UINT8', 1, 0],
             ['<PDOP>', 'DOP', 1, 0],
-            ['<X_VEL>', 'UINT16', 1, 0],
-            ['<Y_VEL>', 'UINT16', 1, 0],
-            ['<Z_VEL>', 'UINT16', 1, 0],
+            ['<X_VEL>', 'INT16', 1, 0],
+            ['<Y_VEL>', 'INT16', 1, 0],
+            ['<Z_VEL>', 'INT16', 1, 0],
             ['<LATITUDE>', 'LATLON', 1, 0],
             ['<LONGITUDE>', 'LATLON', 1, 0],
             ['<FIX_QUALITY>', 'UINT8', 1, 0],
@@ -942,8 +943,8 @@ def payload_decode(command, payload_data, payload_number):
             deg_int = int(deg_min_int / 100.0)
             min_int = deg_min_int - (deg_int * 100)
             min_frac = from_bigendian(payload_data[(idx + 2):(idx + 6)], 4)
-            field_value = deg_int + ((min_int + min_frac) / 60.0)
-            if (payload_data[(idx + 6)] == 'S') or (payload_data[(idx + 6)] == 'W'):
+            field_value = deg_int + (from_fake_float(min_int, min_frac) / 60.0)
+            if (payload_data[(idx + 6)] == 0x53) or (payload_data[(idx + 6)] == 0x57):
                 field_value = -field_value
             payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
             idx = idx + 7
@@ -961,6 +962,11 @@ def payload_decode(command, payload_data, payload_number):
             field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
             payload_string = payload_string.replace(field[0], "{:f}".format(field_value))
             idx = idx + 2
+        elif field[1] == 'INT32':
+            field_value = (int(from_bigendian(payload_data[idx:(idx + 4)], 4)) * field[2]) + field[3]
+            field_value = to_int32(field_value)
+            payload_string = payload_string.replace(field[0], "{:d}".format(field_value))
+            idx = idx + 4
         elif field[1] == 'INT16':
             field_value = (int(from_bigendian(payload_data[idx:(idx + 2)], 2)) * field[2]) + field[3]
             field_value = to_int16(field_value)

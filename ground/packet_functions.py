@@ -442,9 +442,18 @@ def sn_decrement(sequence_number):
 
 
 def to_int16(in_int):
-    out_int = in_int & 0x7FFF
-    if (in_int & 0x8000) != 0:
-        out_int = -out_int
+    if in_int > 32767:
+        out_int = (65536 - in_int) * -1
+    else:
+        out_int = in_int
+    return out_int
+
+
+def to_int32(in_int):
+    if in_int > 2147483648:
+        out_int = (4294967296 - in_int) * -1
+    else:
+        out_int = in_int
     return out_int
 
 
