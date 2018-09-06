@@ -1081,7 +1081,6 @@ def main():
     global gs_ax25_callsign
     global ax25_badpacket
 
-    serial_device_name = 'pty_libertas'
     buffer_saved = False
     filedialog_save = False
     first_packet = True
@@ -1114,7 +1113,7 @@ def main():
     doing_science_payloads = False
     tm_packet_window = 1
     transmit_timeout_count = 4
-    ack_timeout = 7
+    ack_timeout = 5
     max_retries = 4
     sequence_number_window = 2
     spacecraft_transmit_power = 0x7D
@@ -1125,9 +1124,9 @@ def main():
 
     config = configparser.ConfigParser()
     config.read(['ground.ini'])
-    debug = config['general'].getboolean('debug')
-    program_name = config['general']['program_name']
-    program_version = config['general']['program_version']
+    debug = config['ground'].getboolean('debug')
+    program_name = config['ground']['program_name']
+    program_version = config['ground']['program_version']
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
     sc_mac_key = config['comms']['sc_mac_key'].encode()
@@ -1135,8 +1134,12 @@ def main():
     oa_key = config['comms']['oa_key'].encode()
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     gs_encryption_key = config['comms']['gs_encryption_key'].encode()
+    gs_iv = config['comms']['gs_iv'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
+    serial_device_name = config['comms']['serial_device_name']
+    serial_device_baudrate = int(config['comms']['serial_device_baudrate'])
+    use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
     autostart_radio = config['comms'].getboolean('autostart_radio')
     uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
@@ -1163,7 +1166,9 @@ def main():
             gs_xcvr_uhd_pid = None
 
     GsCipher.mode = 'CBC'
-    gs_cipher = GsCipher(gs_encryption_key)
+    GsCipher.gs_encryption_key = gs_encryption_key
+    GsCipher.gs_iv = gs_iv
+    gs_cipher = GsCipher()
     gs_cipher.logger = logger
 
     ax25_header, sc_ax25_callsign, gs_ax25_callsign = init_ax25_header(dst_callsign, dst_ssid, src_callsign, src_ssid)
@@ -1191,11 +1196,13 @@ def main():
     RadioDevice.tx_hostname = tx_hostname
     RadioDevice.tx_port = tx_port
     RadioDevice.serial_device_name = serial_device_name
+    RadioDevice.serial_device_baudrate = serial_device_baudrate
     RadioDevice.use_serial = use_serial
+    RadioDevice.use_lithium_cdi = use_lithium_cdi
     RadioDevice.logger = logger
 
     radio = RadioDevice()
-    radio.ack_timeout = ack_timeout
+    radio.ack_timeout = ack_timeout * 1.25
     radio.max_retries = max_retries
     radio.open()
     SppPacket.radio = radio

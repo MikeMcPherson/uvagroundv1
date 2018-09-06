@@ -237,20 +237,24 @@ def is_oa_command(ax25_packet):
 
 
 class GsCipher:
+    gs_encryption_key = None
+    gs_iv = None
     gs_speck = None
     mode = None
     logger = None
-    iv_bytes = array.array('B', [0xAA, 0xAC, 0x82, 0x40, 0x76, 0xAE, 0x68, 0xAA])
+    key_int = None
     iv_int = None
 
-    def __init__(self, gs_encryption_key):
-        self.gs_encryption_key = gs_encryption_key
+    def __init__(self):
         key_bytes = array.array('B', [])
         for k in self.gs_encryption_key:
             key_bytes.append(k)
-        key_int = int.from_bytes(key_bytes, byteorder='little', signed=False)
-        self.iv_int = int.from_bytes(self.iv_bytes, byteorder='little', signed=False)
-        self.gs_speck = SpeckCipher(key_int, key_size=128, block_size=64, mode=self.mode, init=self.iv_int)
+        self.key_int = int.from_bytes(key_bytes, byteorder='little', signed=False)
+        iv_bytes = array.array('B', [])
+        for i in self.gs_iv:
+            iv_bytes.append(i)
+        self.iv_int = int.from_bytes(iv_bytes, byteorder='little', signed=False)
+        self.gs_speck = SpeckCipher(self.key_int, key_size=128, block_size=64, mode=self.mode, init=self.iv_int)
 
 
     def encrypt(self, ax25_packet):
@@ -283,6 +287,7 @@ class GsCipher:
 
 class RadioDevice:
     use_serial = None
+    use_lithium_cdi = None
     radio_server = None
     rx_hostname = None
     rx_port = None
@@ -291,6 +296,7 @@ class RadioDevice:
     tx_port = None
     tx_obj = None
     serial_device_name = None
+    serial_device_baudrate = None
     ack_timeout = None
     ack_timeout_flag = None
     max_retries = None
@@ -298,7 +304,7 @@ class RadioDevice:
 
     def open(self):
         if self.use_serial:
-            self.rx_obj = serial.Serial(self.serial_device_name, baudrate=9600)
+            self.rx_obj = serial.Serial(self.serial_device_name, baudrate=self.serial_device_baudrate)
             self.tx_obj = self.rx_obj
         else:
             rx_addr = (self.rx_hostname, self.rx_port)
@@ -364,7 +370,7 @@ class RadioDevice:
         return rcv_buffer
 
     def transmit(self, ax25_packet):
-        if self.use_serial:
+        if self.use_lithium_cdi:
             xmit_packet = lithium_wrap(ax25_packet)
         else:
             xmit_packet = kiss_wrap(ax25_packet)
@@ -397,7 +403,10 @@ def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
             serial_buffer = radio.receive(rcv_buffer[5] + 2)
             for s in serial_buffer:
                 rcv_buffer.append(s)
-            ax25_packet = lithium_unwrap(rcv_buffer)
+            if radio.use_lithium_cdi:
+                ax25_packet = lithium_unwrap(rcv_buffer)
+            else:
+                ax25_packet = kiss_wrap(rcv_buffer)
             queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
     else:
         in_kiss_packet = False
