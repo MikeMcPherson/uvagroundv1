@@ -842,8 +842,15 @@ def payload_decode(command, payload_data, payload_number):
             '    "altitude":"<ALTITUDE>",\n' +
             '    "gx":"<GX>", "gy":"<GY>", "gz":"<GZ>",\n' +
             '    "mx":"<MX>", "my":"<MY>", "mz":"<MZ>",\n' +
-            '    "sun_sensor_vi":"<SUN_SENSOR_VI>", "sun_sensor_i":"<SUN_SENSOR_I>", "sun_sensor_ii":"<SUN_SENSOR_II>",\n' +
-            '    "sun_sensor_iii":"<SUN_SENSOR_III>", "sun_sensor_iv":"<SUN_SENSOR_IV>", "sun_sensor_v":"<SUN_SENSOR_V>"\n' +
+            '    "VBCR1":"<VBCR1>", "IBCR1A":"<IBCR1A>", "IBCR1B":"<IBCR1B>",\n' +
+            '    "TBCR1A":"<TBCR1A>", "TBCR1B":"<TBCR1B>",\n' +
+            '    "SDBCR1A":"<SDBCR1A>", "SDBCR1B":"<SDBCR1B>",\n' +
+            '    "VBCR2":"<VBCR2>", "IBCR2A":"<IBCR2A>", "IBCR2B":"<IBCR2B>",\n' +
+            '    "TBCR2A":"<TBCR2A>", "TBCR2B":"<TBCR2B>",\n' +
+            '    "SDBCR2A":"<SDBCR2A>", "SDBCR2B":"<SDBCR2B>",\n' +
+            '    "VBCR4":"<VBCR4>", "IBCR4A":"<IBCR4A>",\n' +
+            '    "TBCR4A":"<TBCR4A>",\n' +
+            '    "SDBCR4A":"<SDBCR4A>", "SDBCR4B":"<SDBCR4B>",\n' +
             '  },\n'
     )
     science_payload_fields = [
@@ -869,12 +876,25 @@ def payload_decode(command, payload_data, payload_number):
             ['<MX>', 'INT16', 1, 0],
             ['<MY>', 'INT16', 1, 0],
             ['<MZ>', 'INT16', 1, 0],
-            ['<SUN_SENSOR_VI>', 'UINT16', 1, 0],
-            ['<SUN_SENSOR_I>', 'UINT16', 1, 0],
-            ['<SUN_SENSOR_II>', 'UINT16', 1, 0],
-            ['<SUN_SENSOR_III>', 'UINT16', 1, 0],
-            ['<SUN_SENSOR_IV>', 'UINT16', 1, 0],
-            ['<SUN_SENSOR_V>', 'UINT16', 1, 0]
+            ['<VBCR1>', 'FLOAT16', 0.009971, 0.0],
+            ['<IBCR1A>', 'FLOAT16', 0.000977517107, 0.0],
+            ['<IBCR1B>', 'FLOAT16', 0.000977517107, 0.0],
+            ['<TBCR1A>', 'FLOAT16', 0.4963, 0.0],
+            ['<TBCR1B>', 'FLOAT16', 0.4963, 0.0],
+            ['<SDBCR1A>', 'FLOAT16', 1.59725, 0.0],
+            ['<SDBCR1B>', 'FLOAT16', 1.59725, 0.0],
+            ['<VBCR2>', 'FLOAT16', 0.009971, 0.0],
+            ['<IBCR2A>', 'FLOAT16', 0.000977517107, 0.0],
+            ['<IBCR2B>', 'FLOAT16', 0.000977517107, 0.0],
+            ['<TBCR2A>', 'FLOAT16', 0.4963, 0.0],
+            ['<TBCR2B>', 'FLOAT16', 0.4963, 0.0],
+            ['<SDBCR2A>', 'FLOAT16', 1.59725, 0.0],
+            ['<SDBCR2B>', 'FLOAT16', 1.59725, 0.0],
+            ['<VBCR4>', 'FLOAT16', 0.009971, 0.0],
+            ['<IBCR4A>', 'FLOAT16', 0.000977517107, 0.0],
+            ['<TBCR4A>', 'FLOAT16', 0.4963, 0.0],
+            ['<SDBCR4A>', 'FLOAT16', 1.59725, 0.0],
+            ['<SDBCR4B>', 'FLOAT16', 1.59725, 0.0]
     ]
     health_payload_string = (
             '  "payload-01":"payload_type":"HEALTH",\n' +
@@ -887,17 +907,24 @@ def payload_decode(command, payload_data, payload_number):
             '    "IPCM5V":"<IPCM5V>", "VPCM5V":"<VPCM5V>",\n' +
             '    "IPCM3V3":"<IPCM3V3>", "VPCM3V3":"<VPCM3V3>",\n' +
             '    "TBRD":"<TBRD>",\n' +
+            '    "VSW1":"<VSW1>", "ISW1":"<ISW1>", "VSW8":"<VSW8>", "ISW8":"<ISW8>",\n' +
+            '    "VSW9":"<VSW9>", "ISW9":"<ISW9>", "VSW10":"<VSW10>", "ISW10":"<ISW10>",\n' +
             '    "VBCR1":"<VBCR1>", "IBCR1A":"<IBCR1A>", "IBCR1B":"<IBCR1B>",\n' +
             '    "TBCR1A":"<TBCR1A>", "TBCR1B":"<TBCR1B>",\n' +
             '    "SDBCR1A":"<SDBCR1A>", "SDBCR1B":"<SDBCR1B>",\n' +
             '    "VBCR2":"<VBCR2>", "IBCR2A":"<IBCR2A>", "IBCR2B":"<IBCR2B>",\n' +
             '    "TBCR2A":"<TBCR2A>", "TBCR2B":"<TBCR2B>",\n' +
             '    "SDBCR2A":"<SDBCR2A>", "SDBCR2B":"<SDBCR2B>",\n' +
+<<<<<<< HEAD
             '    "VBCR3":"<VBCR3>", "IBCR3A":"<IBCR3A>", "IBCR3B":"<IBCR3B>",\n' +
             '    "TBCR3A":"<TBCR3A>", "TBCR3B":"<TBCR3B>",\n' +
             '    "SDBCR3A":"<SDBCR3A>", "SDBCR3B":"<SDBCR3B>",\n' +
             '    "VBCR4":"<VBCR4>", "IBCR4A":"<IBCR4A>", "IBCR4B":"<IBCR4B>",\n' +
             '    "TBCR4A":"<TBCR4A>", "TBCR4B":"<TBCR4B>",\n' +
+=======
+            '    "VBCR4":"<VBCR4>", "IBCR4A":"<IBCR4A>",\n' +
+            '    "TBCR4A":"<TBCR4A>",\n' +
+>>>>>>> v1.2
             '    "SDBCR4A":"<SDBCR4A>", "SDBCR4B":"<SDBCR4B>",\n' +
             '    "ANTENNA_STATUS":"<ANTENNA_STATUS>",\n' +
             '  },\n'
@@ -920,6 +947,14 @@ def payload_decode(command, payload_data, payload_number):
         ['<IPCM3V3>', 'FLOAT16', 0.005237, 0.0],
         ['<VPCM3V3>', 'FLOAT16', 0.004311, 0.0],
         ['<TBRD>', 'FLOAT16', 0.372434, -273.15],
+        ['<VSW1>', 'FLOAT16', 0.01349, 0.0],
+        ['<ISW1>', 'FLOAT16', 0.001328, 0.0],
+        ['<VSW8>', 'FLOAT16', 0.004311, 0.0],
+        ['<ISW8>', 'FLOAT16', 0.001328, 0.0],
+        ['<VSW9>', 'FLOAT16', 0.004311, 0.0],
+        ['<ISW9>', 'FLOAT16', 0.001328, 0.0],
+        ['<VSW10>', 'FLOAT16', 0.004311, 0.0],
+        ['<ISW10>', 'FLOAT16', 0.001328, 0.0],
         ['<VBCR1>', 'FLOAT16', 0.009971, 0.0],
         ['<IBCR1A>', 'FLOAT16', 0.000977517107, 0.0],
         ['<IBCR1B>', 'FLOAT16', 0.000977517107, 0.0],
@@ -934,6 +969,7 @@ def payload_decode(command, payload_data, payload_number):
         ['<TBCR2B>', 'FLOAT16', 0.4963, 0.0],
         ['<SDBCR2A>', 'FLOAT16', 1.59725, 0.0],
         ['<SDBCR2B>', 'FLOAT16', 1.59725, 0.0],
+<<<<<<< HEAD
         ['<VBCR3>', 'FLOAT16', 0.009971, 0.0],
         ['<IBCR3A>', 'FLOAT16', 0.000977517107, 0.0],
         ['<IBCR3B>', 'FLOAT16', 0.000977517107, 0.0],
@@ -946,6 +982,11 @@ def payload_decode(command, payload_data, payload_number):
         ['<IBCR4B>', 'FLOAT16', 0.000977517107, 0.0],
         ['<TBCR4A>', 'FLOAT16', 0.4963, 0.0],
         ['<TBCR4B>', 'FLOAT16', 0.4963, 0.0],
+=======
+        ['<VBCR4>', 'FLOAT16', 0.009971, 0.0],
+        ['<IBCR4A>', 'FLOAT16', 0.000977517107, 0.0],
+        ['<TBCR4A>', 'FLOAT16', 0.4963, 0.0],
+>>>>>>> v1.2
         ['<SDBCR4A>', 'FLOAT16', 1.59725, 0.0],
         ['<SDBCR4B>', 'FLOAT16', 1.59725, 0.0],
         ['<ANTENNA_STATUS>', 'HEX8', 1, 0]
@@ -1102,11 +1143,15 @@ def main():
     ground_sequence_number = 1
     expected_spacecraft_sequence_number = 0
     spacecraft_sequence_numbers = []
+<<<<<<< HEAD
     health_payload_length = 91
+=======
+    health_payload_length = 89
+>>>>>>> v1.2
     health_payloads_per_packet = 4
     health_payloads_available = 1
     doing_health_payloads = False
-    science_payload_length = 83
+    science_payload_length = 109
     science_payloads_per_packet = 2
     science_payloads_available = 1
     downlink_payloads_pending = 0
