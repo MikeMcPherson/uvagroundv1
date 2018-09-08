@@ -915,16 +915,8 @@ def payload_decode(command, payload_data, payload_number):
             '    "VBCR2":"<VBCR2>", "IBCR2A":"<IBCR2A>", "IBCR2B":"<IBCR2B>",\n' +
             '    "TBCR2A":"<TBCR2A>", "TBCR2B":"<TBCR2B>",\n' +
             '    "SDBCR2A":"<SDBCR2A>", "SDBCR2B":"<SDBCR2B>",\n' +
-<<<<<<< HEAD
-            '    "VBCR3":"<VBCR3>", "IBCR3A":"<IBCR3A>", "IBCR3B":"<IBCR3B>",\n' +
-            '    "TBCR3A":"<TBCR3A>", "TBCR3B":"<TBCR3B>",\n' +
-            '    "SDBCR3A":"<SDBCR3A>", "SDBCR3B":"<SDBCR3B>",\n' +
-            '    "VBCR4":"<VBCR4>", "IBCR4A":"<IBCR4A>", "IBCR4B":"<IBCR4B>",\n' +
-            '    "TBCR4A":"<TBCR4A>", "TBCR4B":"<TBCR4B>",\n' +
-=======
             '    "VBCR4":"<VBCR4>", "IBCR4A":"<IBCR4A>",\n' +
             '    "TBCR4A":"<TBCR4A>",\n' +
->>>>>>> v1.2
             '    "SDBCR4A":"<SDBCR4A>", "SDBCR4B":"<SDBCR4B>",\n' +
             '    "ANTENNA_STATUS":"<ANTENNA_STATUS>",\n' +
             '  },\n'
@@ -969,24 +961,9 @@ def payload_decode(command, payload_data, payload_number):
         ['<TBCR2B>', 'FLOAT16', 0.4963, 0.0],
         ['<SDBCR2A>', 'FLOAT16', 1.59725, 0.0],
         ['<SDBCR2B>', 'FLOAT16', 1.59725, 0.0],
-<<<<<<< HEAD
-        ['<VBCR3>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR3A>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<IBCR3B>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<TBCR3A>', 'FLOAT16', 0.4963, 0.0],
-        ['<TBCR3B>', 'FLOAT16', 0.4963, 0.0],
-        ['<SDBCR3A>', 'FLOAT16', 1.59725, 0.0],
-        ['<SDBCR3B>', 'FLOAT16', 1.59725, 0.0],
-        ['<VBCR4>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR4A>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<IBCR4B>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<TBCR4A>', 'FLOAT16', 0.4963, 0.0],
-        ['<TBCR4B>', 'FLOAT16', 0.4963, 0.0],
-=======
         ['<VBCR4>', 'FLOAT16', 0.009971, 0.0],
         ['<IBCR4A>', 'FLOAT16', 0.000977517107, 0.0],
         ['<TBCR4A>', 'FLOAT16', 0.4963, 0.0],
->>>>>>> v1.2
         ['<SDBCR4A>', 'FLOAT16', 1.59725, 0.0],
         ['<SDBCR4B>', 'FLOAT16', 1.59725, 0.0],
         ['<ANTENNA_STATUS>', 'HEX8', 1, 0]
@@ -1143,11 +1120,7 @@ def main():
     ground_sequence_number = 1
     expected_spacecraft_sequence_number = 0
     spacecraft_sequence_numbers = []
-<<<<<<< HEAD
-    health_payload_length = 91
-=======
     health_payload_length = 89
->>>>>>> v1.2
     health_payloads_per_packet = 4
     health_payloads_available = 1
     doing_health_payloads = False
