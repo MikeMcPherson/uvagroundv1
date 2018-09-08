@@ -68,11 +68,11 @@ def main():
     spp_header_len = 15
     spacecraft_sequence_number = 1
     expected_ground_sequence_number = 0
-    health_payload_length = 59
+    health_payload_length = 89
     health_payloads_per_packet = 1
     downlink_health_payloads = 0
     doing_health_payloads = False
-    science_payload_length = 83
+    science_payload_length = 109
     science_payloads_per_packet = 2
     downlink_science_payloads = 0
     doing_science_payloads = False
