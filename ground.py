@@ -1147,12 +1147,7 @@ def main():
     program_version = config['ground']['program_version']
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
-    sc_mac_key = config['comms']['sc_mac_key'].encode()
-    gs_mac_key = config['comms']['gs_mac_key'].encode()
-    oa_key = config['comms']['oa_key'].encode()
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
-    gs_encryption_key = config['comms']['gs_encryption_key'].encode()
-    gs_iv = config['comms']['gs_iv'].encode()
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
     serial_device_name = config['comms']['serial_device_name']
@@ -1161,6 +1156,14 @@ def main():
     autostart_radio = config['comms'].getboolean('autostart_radio')
     uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
+
+    config_keys = configparser.ConfigParser()
+    config_keys.read(['keys.ini'])
+    sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
+    gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
+    oa_key = config_keys['keys']['oa_key'].encode()
+    gs_encryption_key = config_keys['keys']['gs_encryption_key'].encode()
+    gs_iv = config_keys['keys']['gs_iv'].encode()
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
