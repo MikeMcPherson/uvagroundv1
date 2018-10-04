@@ -1107,10 +1107,6 @@ def main():
     tx_hostname = 'localhost'
     rx_port = 9501
     tx_port = 9500
-    dst_callsign = 'W4UVA '
-    dst_ssid = 0
-    src_callsign = 'W4UVA '
-    src_ssid = 6
 
     dump_mode = False
     my_packet_type = 0x18
@@ -1145,6 +1141,10 @@ def main():
     debug = config['ground'].getboolean('debug')
     program_name = config['ground']['program_name']
     program_version = config['ground']['program_version']
+    src_callsign = config['ground']['callsign']
+    src_ssid = int(config['ground']['ssid'])
+    dst_callsign = config['libertas_sim']['callsign']
+    dst_ssid = int(config['libertas_sim']['ssid'])
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')

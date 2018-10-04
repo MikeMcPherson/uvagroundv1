@@ -89,10 +89,6 @@ def main():
     tx_hostname = 'localhost'
     rx_port = 9500
     tx_port = 9501
-    dst_callsign = 'W4UVA '
-    dst_ssid = 6
-    src_callsign = 'W4UVA '
-    src_ssid = 0
 
     cf = currentframe()
     config = configparser.ConfigParser()
@@ -100,6 +96,10 @@ def main():
     debug = config['libertas_sim'].getboolean('debug')
     program_name = config['libertas_sim']['program_name']
     program_version = config['libertas_sim']['program_version']
+    dst_callsign = config['ground']['callsign']
+    dst_ssid = int(config['ground']['ssid'])
+    src_callsign = config['libertas_sim']['callsign']
+    src_ssid = int(config['libertas_sim']['ssid'])
     turnaround = int(config['comms']['turnaround'])
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
