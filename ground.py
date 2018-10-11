@@ -831,7 +831,7 @@ def display_packet():
 
 def payload_decode(command, payload_data, payload_number):
     science_payload_string = (
-            '  "payload<PAYLOAD_NUMBER>":{\n'
+            '  "payload<PAYLOAD_NUMBER>":{\n' +
             '    "payload_type":"SCIENCE",\n' +
             '    "gps_time":"<GPS_TIME>", "gps_week":"<GPS_WEEK>",\n' +
             '    "x_pos":"<X_POS>", "y_pos":"<Y_POS>", "z_pos":"<Z_POS>",\n' +
@@ -850,7 +850,7 @@ def payload_decode(command, payload_data, payload_number):
             '    "SDBCR2A":"<SDBCR2A>", "SDBCR2B":"<SDBCR2B>",\n' +
             '    "VBCR4":"<VBCR4>", "IBCR4A":"<IBCR4A>",\n' +
             '    "TBCR4A":"<TBCR4A>",\n' +
-            '    "SDBCR4A":"<SDBCR4A>", "SDBCR4B":"<SDBCR4B>",\n' +
+            '    "SDBCR4A":"<SDBCR4A>", "SDBCR4B":"<SDBCR4B>"\n' +
             '  },\n'
     )
     science_payload_fields = [
@@ -897,7 +897,8 @@ def payload_decode(command, payload_data, payload_number):
             ['<SDBCR4B>', 'FLOAT16', 1.59725, 0.0]
     ]
     health_payload_string = (
-            '  "payload-01":"payload_type":"HEALTH",\n' +
+            '  "payload0":{\n' +
+            '    "payload_type":"HEALTH",\n' +
             '    "BROWNOUT_RESETS":"<BROWNOUT_RESETS>", "AUTO_RESETS":"<AUTO_RESETS>",\n' +
             '    "MANUAL_RESETS":"<MANUAL_RESETS>", "WATCHDOG_RESETS":"<WATCHDOG_RESETS>",\n' +
             '    "IIDIODE_OUT":"<IIDIODE_OUT>", "VIDIODE_OUT":"<VIDIODE_OUT>",\n' +
@@ -918,7 +919,7 @@ def payload_decode(command, payload_data, payload_number):
             '    "VBCR4":"<VBCR4>", "IBCR4A":"<IBCR4A>",\n' +
             '    "TBCR4A":"<TBCR4A>",\n' +
             '    "SDBCR4A":"<SDBCR4A>", "SDBCR4B":"<SDBCR4B>",\n' +
-            '    "ANTENNA_STATUS":"<ANTENNA_STATUS>",\n' +
+            '    "ANTENNA_STATUS":"<ANTENNA_STATUS>"\n' +
             '  },\n'
     )
     health_payload_fields = [
