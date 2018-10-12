@@ -100,6 +100,11 @@ def main():
     dst_ssid = int(config['ground']['ssid'])
     src_callsign = config['libertas_sim']['callsign']
     src_ssid = int(config['libertas_sim']['ssid'])
+    use_flight_keys = config['comms'].getboolean('use_flight_keys')
+    if use_flight_keys:
+        keys_file = 'keys.flight.ini'
+    else:
+        keys_file = 'keys.dev.ini'
     turnaround = int(config['comms']['turnaround'])
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
@@ -108,7 +113,7 @@ def main():
     use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
 
     config_keys = configparser.ConfigParser()
-    config_keys.read(['keys.ini'])
+    config_keys.read([keys_file])
     sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
     gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
     oa_key = config_keys['keys']['oa_key'].encode()
