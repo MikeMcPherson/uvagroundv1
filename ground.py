@@ -1146,7 +1146,16 @@ def main():
     src_ssid = int(config['ground']['ssid'])
     dst_callsign = config['libertas_sim']['callsign']
     dst_ssid = int(config['libertas_sim']['ssid'])
-    gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
+    use_flight_frequency = config['comms'].getboolean('use_flight_frequency')
+    if use_flight_frequency:
+        gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd_flight'])
+    else:
+        gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd_dev'])
+    use_flight_keys = config['comms'].getboolean('use_flight_keys')
+    if use_flight_keys:
+        keys_file = 'keys.flight.ini'
+    else:
+        keys_file = 'keys.dev.ini'
     turnaround = float(config['comms']['turnaround'])
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
@@ -1159,7 +1168,7 @@ def main():
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
 
     config_keys = configparser.ConfigParser()
-    config_keys.read(['keys.ini'])
+    config_keys.read([keys_file])
     sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
     gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
     oa_key = config_keys['keys']['oa_key'].encode()
@@ -1178,7 +1187,7 @@ def main():
         gs_xcvr_uhd_pid = None
     else:
         if autostart_radio:
-            print('Please wait while the radio starts...')
+            print('Please wait while the radio starts... ', gs_xcvr_uhd)
             # sb_context_id = statusbar1.get_context_id('radio')
             # statusbar1.push(sb_context_id, 'Please wait while the radio starts...')
             gs_xcvr_uhd_pid = subprocess.Popen([gs_xcvr_uhd])
