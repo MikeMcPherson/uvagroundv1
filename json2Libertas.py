@@ -26,59 +26,17 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
+
+from ground.constant import health_payload_fields, science_payload_fields
+from ground.gpstime import UTCFromGps
+import datetime
 import configparser
 import json
 import mysql.connector
-
-
-sql_lS_command = ('INSERT INTO libertasScience '
-                    '(timeUTC, '
-                    'XPOS, '
-                    'YPOS, '
-                    'ZPOS, '
-                    'NUMPVT, '
-                    'PDOP, '
-                    'XVEL, '
-                    'YVEL, '
-                    'ZVEL, '
-                    'LATITUDE, '
-                    'LONGITUDE, '
-                    'FIXQUALITY, '
-                    'NUMTRACKED, '
-                    'HDOP, '
-                    'ALTITUDE, '
-                    'GX, '
-                    'GY, '
-                    'GZ, '
-                    'MX, '
-                    'MY, '
-                    'MZ, '
-                    'VBCR1, '
-                    'IBCR1A, '
-                    'IBCR1B, '
-                    'TBCR1A, '
-                    'TBCR1B, '
-                    'SDBCR1A, '
-                    'SDBCR1B, '
-                    'VBCR2, '
-                    'IBCR2A, '
-                    'IBCR2B, '
-                    'TBCR2A, '
-                    'TBCR2B, '
-                    'SDBCR2A, '
-                    'SDBCR2B, '
-                    'VBCR4, '
-                    'IBCR4A, '
-                    'TBCR4A, '
-                    'SDBCR4A, '
-                    'SDBCR4B) '
-                    'VALUES '
-                    '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '
-                    '%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)')
+import math
 
 
 def main():
-
     config = configparser.ConfigParser()
     config.read(['json2Libertas.ini'])
     mysql_user = config['general']['mysql_user']
@@ -87,6 +45,22 @@ def main():
     libertasHealth_db = config['general']['libertasHealth_db']
     libertasScience_db = config['general']['libertasScience_db']
 
+    sql_lS_command = 'INSERT INTO libertasScience (timeUTC, '
+    for science_field in science_payload_fields[2:]:
+        sql_lS_command += science_field[0].replace('<', '').replace('>', '') + ', '
+    sql_lS_command = sql_lS_command[:-2]
+    sql_lS_command += ') VALUES (' + ('%s, ' * len(science_payload_fields[2:]))
+    sql_lS_command = sql_lS_command[:-2]
+    sql_lS_command += ')'
+
+    sql_lH_command = 'INSERT INTO libertasHealth (timeUTC, '
+    for health_field in health_payload_fields[2:]:
+        sql_lH_command += health_field[0].replace('<', '').replace('>', '') + ', '
+    sql_lH_command = sql_lH_command[:-2]
+    sql_lH_command += ') VALUES (' + ('%s, ' * len(health_payload_fields[2:]))
+    sql_lH_command = sql_lH_command[:-2]
+    sql_lH_command += ')'
+
     cnx = mysql.connector.connect(user=mysql_user, password=mysql_password, database=mysql_db)
     cursor = cnx.cursor()
     cursor.execute("DELETE FROM libertasScience")
@@ -94,7 +68,7 @@ def main():
     cursor.execute("DELETE FROM libertasHealth")
     cnx.commit()
 
-    with open('ground20181012151206.json', 'r') as f:
+    with open('ground20181013024844.json', 'r') as f:
         packet_dict = json.load(f)
     records = 0
     for packet in packet_dict["packets"]:
@@ -102,17 +76,19 @@ def main():
             if packet["command"] == 'XMIT_HEALTH':
                 print('health')
                 records += 1
-                seconds = float(row[0][12:14]) + random.random()
-                time_utc = (row[0][:4] + '-' + row[0][4:6] + '-' + row[0][6:8] + 'T'
-                            + row[0][8:10] + ':' + row[0][10:12] + ':' + '{:010.7f}'.format(seconds) + 'Z')
-                sql_data = ("{:s}".format(time_utc),)
-                sql_data = sql_data + \
-                            ("{:.2f}".format(battery_voltage_b1),
-                            "{:.2f}".format(battery_voltage_b2),
-                            "{:.2f}".format(battery_voltage_b3),
-                            "{:.2f}".format(battery_voltage_b4))
-                cursor.execute(sql_command, sql_data)
-                cnx.commit()
+                packet_time = UTCFromGps(float(packet['gps_week']), float(packet['gps_time']))
+                frac, whole = math.modf(packet_time[5])
+                time_utc = datetime.datetime(packet_time[0], packet_time[1], packet_time[2],
+                                             packet_time[3], packet_time[4], int(whole), int(frac * 1000000))
+                sql_data = (time_utc,)
+                print(sql_data)
+                # sql_data = sql_data + \
+                #             ("{:.2f}".format(battery_voltage_b1),
+                #             "{:.2f}".format(battery_voltage_b2),
+                #             "{:.2f}".format(battery_voltage_b3),
+                #             "{:.2f}".format(battery_voltage_b4))
+                # cursor.execute(sql_command, sql_data)
+                # cnx.commit()
             elif packet["command"] == 'XMIT_SCIENCE':
                 print('science')
     cursor.close()

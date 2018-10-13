@@ -43,7 +43,7 @@ from queue import Empty
 import hexdump
 import random
 from nltk import word_tokenize
-from ground.constant import COMMAND_CODES, COMMAND_NAMES
+from ground.constant import COMMAND_CODES, COMMAND_NAMES, health_payload_fields, science_payload_fields
 from ground.packet_functions import SppPacket, RadioDevice, GsCipher, kiss_wrap, kiss_unwrap
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
@@ -831,17 +831,17 @@ def display_packet():
 
 def payload_decode(command, payload_data, payload_number):
     science_payload_string = (
-            '  "payload<PAYLOAD_NUMBER>":{\n' +
-            '    "payload_type":"SCIENCE",\n' +
-            '    "gps_time":"<GPS_TIME>", "gps_week":"<GPS_WEEK>",\n' +
-            '    "x_pos":"<X_POS>", "y_pos":"<Y_POS>", "z_pos":"<Z_POS>",\n' +
-            '    "satellites_pvt":"<SATELLITES_PVT>", "pdop":"<PDOP>",\n' +
-            '    "x_vel":"<X_VEL>", "y_vel":"<Y_VEL>", "z_vel":"<Z_VEL>",\n' +
-            '    "latitude":"<LATITUDE>", "longitude":"<LONGITUDE>",\n' +
-            '    "fix_quality":"<FIX_QUALITY>", "satellites_tracked":"<SATELLITES_TRACKED>", "hdop":"<HDOP>",\n' +
-            '    "altitude":"<ALTITUDE>",\n' +
-            '    "gx":"<GX>", "gy":"<GY>", "gz":"<GZ>",\n' +
-            '    "mx":"<MX>", "my":"<MY>", "mz":"<MZ>",\n' +
+            '  "PAYLOAD<PAYLOAD_NUMBER>":{\n' +
+            '    "PAYLOAD_TYPE":"SCIENCE",\n' +
+            '    "GPSTIME":"<GPSTIME>", "GPSWEEK":"<GPSWEEK>",\n' +
+            '    "XPOS":"<XPOS>", "YPOS":"<YPOS>", "ZPOS":"<ZPOS>",\n' +
+            '    "NUMPVT":"<NUMPVT>", "PDOP":"<PDOP>",\n' +
+            '    "XVEL":"<XVEL>", "YVEL":"<YVEL>", "ZVEL":"<ZVEL>",\n' +
+            '    "LATITUDE":"<LATITUDE>", "LONGITUDE":"<LONGITUDE>",\n' +
+            '    "FIXQUALITY":"<FIXQUALITY>", "NUMTRACKED":"<NUMTRACKED>", "HDOP":"<HDOP>",\n' +
+            '    "ALTITUDE":"<ALTITUDE>",\n' +
+            '    "GX":"<GX>", "GY":"<GY>", "GZ":"<GZ>",\n' +
+            '    "MX":"<MX>", "MY":"<MY>", "MZ":"<MZ>",\n' +
             '    "VBCR1":"<VBCR1>", "IBCR1A":"<IBCR1A>", "IBCR1B":"<IBCR1B>",\n' +
             '    "TBCR1A":"<TBCR1A>", "TBCR1B":"<TBCR1B>",\n' +
             '    "SDBCR1A":"<SDBCR1A>", "SDBCR1B":"<SDBCR1B>",\n' +
@@ -853,52 +853,9 @@ def payload_decode(command, payload_data, payload_number):
             '    "SDBCR4A":"<SDBCR4A>", "SDBCR4B":"<SDBCR4B>"\n' +
             '  },\n'
     )
-    science_payload_fields = [
-            ['<GPS_TIME>', 'GPSTIME', 1, 0],
-            ['<GPS_WEEK>', 'UINT16', 1, 0],
-            ['<X_POS>', 'INT32', 1, 0],
-            ['<Y_POS>', 'INT32', 1, 0],
-            ['<Z_POS>', 'INT32', 1, 0],
-            ['<SATELLITES_PVT>', 'UINT8', 1, 0],
-            ['<PDOP>', 'DOP', 1, 0],
-            ['<X_VEL>', 'INT16', 1, 0],
-            ['<Y_VEL>', 'INT16', 1, 0],
-            ['<Z_VEL>', 'INT16', 1, 0],
-            ['<LATITUDE>', 'LATLON', 1, 0],
-            ['<LONGITUDE>', 'LATLON', 1, 0],
-            ['<FIX_QUALITY>', 'UINT8', 1, 0],
-            ['<SATELLITES_TRACKED>', 'UINT8', 1, 0],
-            ['<HDOP>', 'DOP', 1, 0],
-            ['<ALTITUDE>', 'UINT32', 1, 0],
-            ['<GX>', 'INT16', 1, 0],
-            ['<GY>', 'INT16', 1, 0],
-            ['<GZ>', 'INT16', 1, 0],
-            ['<MX>', 'INT16', 1, 0],
-            ['<MY>', 'INT16', 1, 0],
-            ['<MZ>', 'INT16', 1, 0],
-            ['<VBCR1>', 'FLOAT16', 0.009971, 0.0],
-            ['<IBCR1A>', 'FLOAT16', 0.000977517107, 0.0],
-            ['<IBCR1B>', 'FLOAT16', 0.000977517107, 0.0],
-            ['<TBCR1A>', 'FLOAT16', 0.4963, -273.15],
-            ['<TBCR1B>', 'FLOAT16', 0.4963, -273.15],
-            ['<SDBCR1A>', 'FLOAT16', 1.59725, 0.0],
-            ['<SDBCR1B>', 'FLOAT16', 1.59725, 0.0],
-            ['<VBCR2>', 'FLOAT16', 0.009971, 0.0],
-            ['<IBCR2A>', 'FLOAT16', 0.000977517107, 0.0],
-            ['<IBCR2B>', 'FLOAT16', 0.000977517107, 0.0],
-            ['<TBCR2A>', 'FLOAT16', 0.4963, -273.15],
-            ['<TBCR2B>', 'FLOAT16', 0.4963, -273.15],
-            ['<SDBCR2A>', 'FLOAT16', 1.59725, 0.0],
-            ['<SDBCR2B>', 'FLOAT16', 1.59725, 0.0],
-            ['<VBCR4>', 'FLOAT16', 0.009971, 0.0],
-            ['<IBCR4A>', 'FLOAT16', 0.000977517107, 0.0],
-            ['<TBCR4A>', 'FLOAT16', 0.4963, -273.15],
-            ['<SDBCR4A>', 'FLOAT16', 1.59725, 0.0],
-            ['<SDBCR4B>', 'FLOAT16', 1.59725, 0.0]
-    ]
     health_payload_string = (
-            '  "payload0":{\n' +
-            '    "payload_type":"HEALTH",\n' +
+            '  "PAYLOAD0":{\n' +
+            '    "PAYLOAD_TYPE":"HEALTH",\n' +
             '    "BROWNOUT_RESETS":"<BROWNOUT_RESETS>", "AUTO_RESETS":"<AUTO_RESETS>",\n' +
             '    "MANUAL_RESETS":"<MANUAL_RESETS>", "WATCHDOG_RESETS":"<WATCHDOG_RESETS>",\n' +
             '    "IIDIODE_OUT":"<IIDIODE_OUT>", "VIDIODE_OUT":"<VIDIODE_OUT>",\n' +
@@ -922,53 +879,6 @@ def payload_decode(command, payload_data, payload_number):
             '    "ANTENNA_STATUS":"<ANTENNA_STATUS>"\n' +
             '  },\n'
     )
-    health_payload_fields = [
-        ['<BROWNOUT_RESETS>', 'UINT16', 1, 0],
-        ['<AUTO_RESETS>', 'UINT16', 1, 0],
-        ['<MANUAL_RESETS>', 'UINT16', 1, 0],
-        ['<WATCHDOG_RESETS>', 'UINT16', 1, 0],
-        ['<IIDIODE_OUT>', 'FLOAT16', 0.014662757, 0.0],
-        ['<VIDIODE_OUT>', 'FLOAT16', 0.008993157, 0.0],
-        ['<I3V3_DRW>', 'FLOAT16', 0.001327547, 0.0],
-        ['<I5V_DRW>', 'FLOAT16', 0.001327547, 0.0],
-        ['<IPCM12V>', 'FLOAT16', 0.00207, 0.0],
-        ['<VPCM12V>', 'FLOAT16', 0.01349, 0.0],
-        ['<IPCMBATV>', 'FLOAT16', 0.005237, 0.0],
-        ['<VPCKBATV>', 'FLOAT16', 0.008978, 0.0],
-        ['<IPCM5V>', 'FLOAT16', 0.005237, 0.0],
-        ['<VPCM5V>', 'FLOAT16', 0.005865, 0.0],
-        ['<IPCM3V3>', 'FLOAT16', 0.005237, 0.0],
-        ['<VPCM3V3>', 'FLOAT16', 0.004311, 0.0],
-        ['<TBRD>', 'FLOAT16', 0.372434, -273.15],
-        ['<VSW1>', 'FLOAT16', 0.01349, 0.0],
-        ['<ISW1>', 'FLOAT16', 0.001328, 0.0],
-        ['<VSW8>', 'FLOAT16', 0.004311, 0.0],
-        ['<ISW8>', 'FLOAT16', 0.001328, 0.0],
-        ['<VSW9>', 'FLOAT16', 0.004311, 0.0],
-        ['<ISW9>', 'FLOAT16', 0.001328, 0.0],
-        ['<VSW10>', 'FLOAT16', 0.004311, 0.0],
-        ['<ISW10>', 'FLOAT16', 0.001328, 0.0],
-        ['<VBCR1>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR1A>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<IBCR1B>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<TBCR1A>', 'FLOAT16', 0.4963, -273.15],
-        ['<TBCR1B>', 'FLOAT16', 0.4963, -273.15],
-        ['<SDBCR1A>', 'FLOAT16', 1.59725, 0.0],
-        ['<SDBCR1B>', 'FLOAT16', 1.59725, 0.0],
-        ['<VBCR2>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR2A>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<IBCR2B>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<TBCR2A>', 'FLOAT16', 0.4963, -273.15],
-        ['<TBCR2B>', 'FLOAT16', 0.4963, -273.15],
-        ['<SDBCR2A>', 'FLOAT16', 1.59725, 0.0],
-        ['<SDBCR2B>', 'FLOAT16', 1.59725, 0.0],
-        ['<VBCR4>', 'FLOAT16', 0.009971, 0.0],
-        ['<IBCR4A>', 'FLOAT16', 0.000977517107, 0.0],
-        ['<TBCR4A>', 'FLOAT16', 0.4963, -273.15],
-        ['<SDBCR4A>', 'FLOAT16', 1.59725, 0.0],
-        ['<SDBCR4B>', 'FLOAT16', 1.59725, 0.0],
-        ['<ANTENNA_STATUS>', 'HEX8', 1, 0]
-    ]
     if command == COMMAND_CODES['XMIT_SCIENCE']:
         payload_string = science_payload_string
         payload_string = payload_string.replace('<PAYLOAD_NUMBER>', "{:1d}".format(payload_number))

@@ -5,7 +5,7 @@ Copyright 2002 by Bud P. Bruegger, Sistema, Italy
 mailto:bud@sistema.it
 http://www.sistema.it
 
-Modifications to remove all but gpsFromUTC for UVa Libertas Ground Station by Mike McPherson, 30 Apr 2018
+Modified for use by uvagroundv1, OpenSES by Michael R. McPherson, 2018
 
 Modifications for GPS seconds by Duncan Brown
 
@@ -21,8 +21,9 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 details.
 
-You should have received a copy of the GNU General Public License along with
-this program. If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU Lesser General Public License along
+with this program; if not, write to the Free Software Foundation, Inc., 59
+Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 GPS Time Utility functions
 
@@ -41,12 +42,55 @@ as compared to some algorigthms found in the literature and on the web.
 """
 
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
+# from glue import git_version
+# __date__ = git_version.date
+# __version__ = git_version.id
 
 import time, math
 
 secsInWeek = 604800
 secsInDay = 86400
 gpsEpoch = (1980, 1, 6, 0, 0, 0)  # (year, month, day, hh, mm, ss)
+
+def dayOfWeek(year, month, day):
+    "returns day of week: 0=Sun, 1=Mon, .., 6=Sat"
+    hr = 12  #make sure you fall into right day, middle is save
+    t = time.mktime((year, month, day, hr, 0, 0.0, 0, 0, -1))
+    pyDow = time.localtime(t)[6]
+    gpsDow = (pyDow + 1) % 7
+    return gpsDow
+
+def gpsWeek(year, month, day):
+    "returns (full) gpsWeek for given date (in UTC)"
+    hr = 12  #make sure you fall into right day, middle is save
+    return gpsFromUTC(year, month, day, hr, 0, 0.0)[0]
+
+
+def julianDay(year, month, day):
+    "returns julian day=day since Jan 1 of year"
+    hr = 12  #make sure you fall into right day, middle is save
+    t = time.mktime((year, month, day, hr, 0, 0.0, 0, 0, -1))
+    julDay = time.localtime(t)[7]
+    return julDay
+
+def mkUTC(year, month, day, hour, min, sec):
+    "similar to python's mktime but for utc"
+    spec = [year, month, day, hour, min, sec] + [0, 0, 0]
+    utc = time.mktime(spec) - time.timezone
+    return utc
+
+def ymdhmsFromPyUTC(pyUTC):
+    "returns tuple from a python time value in UTC"
+    ymdhmsXXX = time.gmtime(pyUTC)
+    return ymdhmsXXX[:-3]
+
+def wtFromUTCpy(pyUTC, leapSecs=18):
+    """convenience function:
+         allows to use python UTC times and
+         returns only week and tow"""
+    ymdhms = ymdhmsFromPyUTC(pyUTC)
+    wSowDSoD = apply(gpsFromUTC, ymdhms + (leapSecs,))
+    return wSowDSoD[0:2]
 
 def gpsFromUTC(year, month, day, hour, min, sec, leapSecs=18):
     """converts UTC to: gpsWeek, secsOfWeek, gpsDay, secsOfDay
@@ -87,4 +131,92 @@ def gpsFromUTC(year, month, day, hour, min, sec, leapSecs=18):
     gpsDay = int(math.floor(gpsSOW/secsInDay))
     gpsSOD = (gpsSOW % secsInDay) 
     return (gpsWeek, gpsSOW, gpsDay, gpsSOD)
-    
+
+
+def UTCFromGps(gpsWeek, SOW, leapSecs=18):
+    """converts gps week and seconds to UTC
+
+    see comments of inverse function!
+
+    SOW = seconds of week
+    gpsWeek is the full number (not modulo 1024)
+    """
+    secFract = SOW % 1
+    epochTuple = gpsEpoch + (-1, -1, 0) 
+    t0 = time.mktime(epochTuple) - time.timezone  #mktime is localtime, correct for UTC
+    tdiff = (gpsWeek * secsInWeek) + SOW - leapSecs
+    t = t0 + tdiff
+    (year, month, day, hh, mm, ss, dayOfWeek, julianDay, daylightsaving) = time.gmtime(t)
+    #use gmtime since localtime does not allow to switch off daylighsavings correction!!!
+    return (year, month, day, hh, mm, ss + secFract)
+
+def GpsSecondsFromPyUTC( pyUTC, leapSecs=18 ):
+    """converts the python epoch to gps seconds
+
+    pyEpoch = the python epoch from time.time()
+    """
+    t = t=gpsFromUTC(*ymdhmsFromPyUTC( pyUTC ))
+    return int(t[0] * 60 * 60 * 24 * 7 + t[1])
+
+# def PyUTCFromGpsSeconds(gpsseconds):
+#     """converts gps seconds to the
+#     python epoch. That is, the time
+#     that would be returned from time.time()
+#     at gpsseconds.
+#     """
+#     pyUTC
+#
+# #===== Tests  =========================================
+#
+# def testTimeStuff():
+#     print "-"*20
+#     print
+#     print "The GPS Epoch when everything began (1980, 1, 6, 0, 0, 0, leapSecs=0)"
+#     (w, sow, d, sod) = gpsFromUTC(1980, 1, 6, 0, 0, 0, leapSecs=0)
+#     print "**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod)
+#     print "     and hopefully back:"
+#     print "**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow, leapSecs=0)
+#
+#     print "The time of first Rollover of GPS week (1999, 8, 21, 23, 59, 47)"
+#     (w, sow, d, sod) = gpsFromUTC(1999, 8, 21, 23, 59, 47)
+#     print "**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod)
+#     print "     and hopefully back:"
+#     print "**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow, leapSecs=14)
+#
+#     print "Today is GPS week 1186, day 3, seems to run ok (2002, 10, 2, 12, 6, 13.56)"
+#     (w, sow, d, sod) = gpsFromUTC(2002, 10, 2, 12, 6, 13.56)
+#     print "**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod)
+#     print "     and hopefully back:"
+#     print "**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow)
+#
+# def testJulD():
+#     print '2002, 10, 11 -> 284  ==??== ', julianDay(2002, 10, 11)
+#
+# def testGpsWeek():
+#     print '2002, 10, 11 -> 1187  ==??== ', gpsWeek(2002, 10, 11)
+#
+# def testDayOfWeek():
+#     print '2002, 10, 12 -> 6  ==??== ', dayOfWeek(2002, 10, 12)
+#     print '2002, 10, 6  -> 0  ==??== ', dayOfWeek(2002, 10, 6)
+#
+# def testPyUtilties():
+#     ymdhms = (2002, 10, 12, 8, 34, 12.3)
+#     print "testing for: ", ymdhms
+#     pyUtc = apply(mkUTC, ymdhms)
+#     back =  ymdhmsFromPyUTC(pyUtc)
+#     print "yields     : ", back
+# #*********************** !!!!!!!!
+#     #assert(ymdhms == back)
+#     #! TODO: this works only with int seconds!!! fix!!!
+#     (w, t) = wtFromUTCpy(pyUtc)
+#     print "week and time: ", (w,t)
+#
+#
+# #===== Main =========================================
+# if __name__ == "__main__":
+#     pass
+#     testTimeStuff()
+#     testGpsWeek()
+#     testJulD()
+#     testDayOfWeek()
+#     testPyUtilties()
