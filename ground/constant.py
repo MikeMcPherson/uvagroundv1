@@ -23,6 +23,7 @@ COMMAND_CODES = {}
 for code, cmd in COMMAND_NAMES.items():
     COMMAND_CODES.update({cmd: code})
 
+# Defined in spacecraft code.  DO NOT CHANGE!
 health_payload_fields = [
     ['<BROWNOUT_RESETS>', 'UINT16', 1, 0],
     ['<AUTO_RESETS>', 'UINT16', 1, 0],
@@ -71,6 +72,7 @@ health_payload_fields = [
     ['<ANTENNA_STATUS>', 'HEX8', 1, 0]
 ]
 
+# Defined in spacecraft code.  DO NOT CHANGE!
 science_payload_fields = [
     ['<GPSTIME>', 'GPSTIME', 1, 0],
     ['<GPSWEEK>', 'UINT16', 1, 0],
