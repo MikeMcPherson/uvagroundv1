@@ -46,18 +46,18 @@ def main():
     libertasScience_db = config['general']['libertasScience_db']
 
     sql_lS_command = 'INSERT INTO libertasScience (timeUTC, '
-    for science_field in science_payload_fields[2:]:
+    for science_field in science_payload_fields:
         sql_lS_command += science_field[0].replace('<', '').replace('>', '') + ', '
     sql_lS_command = sql_lS_command[:-2]
-    sql_lS_command += ') VALUES (' + ('%s, ' * len(science_payload_fields[2:]))
+    sql_lS_command += ') VALUES (' + ('%s, ' * len(science_payload_fields))
     sql_lS_command = sql_lS_command[:-2]
     sql_lS_command += ')'
 
     sql_lH_command = 'INSERT INTO libertasHealth (timeUTC, '
-    for health_field in health_payload_fields[2:]:
+    for health_field in health_payload_fields:
         sql_lH_command += health_field[0].replace('<', '').replace('>', '') + ', '
     sql_lH_command = sql_lH_command[:-2]
-    sql_lH_command += ') VALUES (' + ('%s, ' * len(health_payload_fields[2:]))
+    sql_lH_command += ') VALUES (' + ('%s, ' * len(health_payload_fields))
     sql_lH_command = sql_lH_command[:-2]
     sql_lH_command += ')'
 

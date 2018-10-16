@@ -1,6 +1,7 @@
 push.sh
 push_master.sh
 start_socat.sh
+*.bak
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
