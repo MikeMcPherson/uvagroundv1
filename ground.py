@@ -856,8 +856,8 @@ def payload_decode(command, payload_data, payload_number):
     health_payload_string = (
             '  "PAYLOAD0":{\n' +
             '    "PAYLOAD_TYPE":"HEALTH",\n' +
-            '    "BROWNOUT_RESETS":"<BROWNOUT_RESETS>", "AUTO_RESETS":"<AUTO_RESETS>",\n' +
-            '    "MANUAL_RESETS":"<MANUAL_RESETS>", "WATCHDOG_RESETS":"<WATCHDOG_RESETS>",\n' +
+            '    "BROWNOUT_RESETS":"<BROWNOUT_RESETS>", "AUTO_SOFTWARE_RESETS":"<AUTO_SOFTWARE_RESETS>",\n' +
+            '    "MANUAL_RESETS":"<MANUAL_RESETS>", "COMMS_WATCHDOG_RESETS":"<COMMS_WATCHDOG_RESETS>",\n' +
             '    "IIDIODE_OUT":"<IIDIODE_OUT>", "VIDIODE_OUT":"<VIDIODE_OUT>",\n' +
             '    "I3V3_DRW":"<I3V3_DRW>", "I5V_DRW":"<I5V_DRW>",\n' +
             '    "IPCM12V":"<IPCM12V>", "VPCM12V":"<VPCM12V>",\n' +

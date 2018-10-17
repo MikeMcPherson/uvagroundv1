@@ -26,9 +26,9 @@ for code, cmd in COMMAND_NAMES.items():
 # Defined in spacecraft code.  DO NOT CHANGE!
 health_payload_fields = [
     ['<BROWNOUT_RESETS>', 'UINT16', 1, 0],
-    ['<AUTO_RESETS>', 'UINT16', 1, 0],
+    ['<AUTO_SOFTWARE_RESETS>', 'UINT16', 1, 0],
     ['<MANUAL_RESETS>', 'UINT16', 1, 0],
-    ['<WATCHDOG_RESETS>', 'UINT16', 1, 0],
+    ['<COMMS_WATCHDOG_RESETS>', 'UINT16', 1, 0],
     ['<IIDIODE_OUT>', 'FLOAT16', 0.014662757, 0.0],
     ['<VIDIODE_OUT>', 'FLOAT16', 0.008993157, 0.0],
     ['<I3V3_DRW>', 'FLOAT16', 0.001327547, 0.0],
@@ -69,7 +69,7 @@ health_payload_fields = [
     ['<TBCR4A>', 'FLOAT16', 0.4963, -273.15],
     ['<SDBCR4A>', 'FLOAT16', 1.59725, 0.0],
     ['<SDBCR4B>', 'FLOAT16', 1.59725, 0.0],
-    ['<ANTENNA_STATUS>', 'HEX8', 1, 0]
+    ['<ANTENNA_STATUS>', 'UINT8', 1, 0]
 ]
 
 # Defined in spacecraft code.  DO NOT CHANGE!
