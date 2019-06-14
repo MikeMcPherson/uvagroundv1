@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 """
-json2Libertas.py
+simDataLibertas.py
 
-Read JSON packet capture from uvagroundv1 and load the Health and Science payloads
-into a MySQL database.
+Generate simulated Health and Science payloads and load into a MySQL database.
 
 Copyright 2018 by Michael R. McPherson, Charlottesville, VA
 mailto:mcpherson@acm.org
@@ -38,17 +37,28 @@ import array
 import hashlib
 import random
 import binascii
+import socket
+
 
 
 def main():
+    UDP_IP = '127.0.0.1'
+    UDP_PORT = 1210
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(b'GET_SAT ISS', (UDP_IP, UDP_PORT))
+    data, addr = sock.recvfrom(1024)
+    print(data)
+    sock.close()
+    exit()
+
     config = configparser.ConfigParser()
     config.read(['json2Libertas.ini'])
     mysql_user = config['general']['mysql_user']
     mysql_password = config['general']['mysql_password']
     mysql_db = config['general']['mysql_db']
-    mysql_host = config['general']['mysql_host']
     libertasHealth_db = config['general']['libertasHealth_db']
     libertasScience_db = config['general']['libertasScience_db']
+    libertasAX25Packet_db = config['general']['libertasAX25Packet_db']
 
     sql_lS_command = 'INSERT INTO libertasScience (TIMEUTC, '
     for science_field in science_payload_fields:
@@ -68,14 +78,14 @@ def main():
                      'SEQUENCE_NUMBER, AX25_DESTINATION, AX25_SOURCE, AX25_PACKET, AX25_SHA256) '
     sql_lA_command += 'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 
-    cnx = mysql.connector.connect(user=mysql_user, password=mysql_password, database=mysql_db, host=mysql_host)
+    cnx = mysql.connector.connect(user=mysql_user, password=mysql_password, database=mysql_db)
     cursor = cnx.cursor()
     cursor.execute("DELETE FROM libertasScience")
     cnx.commit()
     cursor.execute("DELETE FROM libertasHealth")
     cnx.commit()
 
-    with open('LibertasTest20190219Edited.json', 'r') as f:
+    with open('ground20181017003942.json', 'r') as f:
         packet_dict = json.load(f)
     health_records = 0
     science_records = 0
@@ -96,14 +106,13 @@ def main():
                 ax25_random = str(random.random()).encode()
                 ax25_sha256.update(ax25_random)
                 ax25_digest = binascii.hexlify(ax25_sha256.digest()).decode()
-                sql_data = (packet["received_time_utc"], packet['gps_time'], packet['gps_week'])
+                sql_data = (time_utc, packet['gps_time'], packet['gps_week'])
                 for health_item in health_payload_fields:
                     health_item_trimmed = health_item[0].replace('<', '').replace('>', '')
                     sql_data = sql_data + (packet['PAYLOAD0'][health_item_trimmed],)
                 sql_data = sql_data + (ax25_digest,)
                 cursor.execute(sql_lH_command, sql_data)
                 cnx.commit()
-                print(sql_data)
             elif packet["command"] == 'XMIT_SCIENCE':
                 for i in range(2):
                     payload = 'PAYLOAD' + str(i)
@@ -111,18 +120,13 @@ def main():
                     ax25_random = str(random.random()).encode()
                     ax25_sha256.update(ax25_random)
                     ax25_digest = binascii.hexlify(ax25_sha256.digest()).decode()
-                    payload_time = UTCFromGps((float(packet[payload]['GPSWEEK'])+1024.0), float(packet[payload]['GPSTIME']))
-                    frac, whole = math.modf(payload_time[5])
-                    payload_time_utc = datetime(payload_time[0], payload_time[1], payload_time[2],
-                                        payload_time[3], payload_time[4], int(whole), int(frac * 1000000)).isoformat(' ')
-                    sql_data = (payload_time_utc, packet[payload]['GPSTIME'], packet[payload]['GPSWEEK'])
+                    sql_data = (time_utc, packet['gps_time'], packet['gps_week'])
                     for science_item in science_payload_fields[2:]:
                         science_item_trimmed = science_item[0].replace('<', '').replace('>', '')
                         sql_data = sql_data + (packet[payload][science_item_trimmed],)
                     sql_data = sql_data + (ax25_digest,)
                     cursor.execute(sql_lS_command, sql_data)
                     cnx.commit()
-                print(sql_data)
         ax25_records += 1
         ax25_random = str(random.random()).encode()
         ax25_sha256.update(ax25_random)
