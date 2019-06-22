@@ -1016,8 +1016,8 @@ def main():
     radio_server = False
     rx_hostname = 'localhost'
     tx_hostname = 'localhost'
-    rx_port = 9501
-    tx_port = 9500
+    rx_port = 8501
+    tx_port = 8500
 
     dump_mode = False
     my_packet_type = 0x18
