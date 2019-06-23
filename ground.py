@@ -1016,8 +1016,8 @@ def main():
     radio_server = False
     rx_hostname = 'localhost'
     tx_hostname = 'localhost'
-    rx_port = 8501
-    tx_port = 8500
+    rx_port = 18500
+    tx_port = 18500
 
     dump_mode = False
     my_packet_type = 0x18
@@ -1053,6 +1053,10 @@ def main():
     program_name = config['ground']['program_name']
     program_version = config['ground']['program_version']
     src_callsign = config['ground']['callsign']
+    rx_hostname = config['ground']['rx_hostname']
+    tx_hostname = config['ground']['tx_hostname']
+    rx_port = int(config['ground']['rx_port'])
+    tx_port = int(config['ground']['tx_port'])
     src_ssid = int(config['ground']['ssid'])
     dst_callsign = config['libertas_sim']['callsign']
     dst_ssid = int(config['libertas_sim']['ssid'])

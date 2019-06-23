@@ -84,11 +84,11 @@ def main():
     sequence_number_window = 2
     spacecraft_transmit_power = 125
     tm_packets_waiting_ack = []
-    radio_server = True
+    radio_server = False
     rx_hostname = 'localhost'
     tx_hostname = 'localhost'
-    rx_port = 9500
-    tx_port = 9501
+    rx_port = 19500
+    tx_port = 19500
 
     cf = currentframe()
     config = configparser.ConfigParser()
@@ -96,6 +96,11 @@ def main():
     debug = config['libertas_sim'].getboolean('debug')
     program_name = config['libertas_sim']['program_name']
     program_version = config['libertas_sim']['program_version']
+    radio_server = config['libertas_sim'].getboolean('radio_server')
+    rx_hostname = config['libertas_sim']['rx_hostname']
+    tx_hostname = config['libertas_sim']['tx_hostname']
+    rx_port = int(config['libertas_sim']['rx_port'])
+    tx_port = int(config['libertas_sim']['tx_port'])
     dst_callsign = config['ground']['callsign']
     dst_ssid = int(config['ground']['ssid'])
     src_callsign = config['libertas_sim']['callsign']
@@ -190,6 +195,7 @@ def main():
                                                                                       q_receive_packet, logger))
     p_receive_packet.daemon = True
     p_receive_packet.start()
+    logger.info("%s %s", program_name, program_version)
 
     while True:
         try:
