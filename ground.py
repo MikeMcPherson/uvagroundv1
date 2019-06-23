@@ -603,7 +603,7 @@ def save_file_as():
     global buffer_saved
     global buffer_filename
     time_utc = time.gmtime()
-    time_string = time.strftime("ground%Y%m%d%H%M%S.json", time_utc)
+    time_string = time.strftime("ground%Y%m%dT%H%M%SZ.json", time_utc)
     Handler.filechooserwindow.set_current_name(time_string)
     Handler.filechooserwindow.run()
     if Handler.filedialog1_save:
@@ -695,7 +695,8 @@ def display_packet():
     values_per_row = 8
 
     if not q_display_packet.empty():
-        tv_header = ('  "sender":"<SENDER>", ' +
+        tv_header = ('  "ground_utc":"<GROUND_UTC>",\n' +
+                     '  "sender":"<SENDER>", ' +
                      '"packet_type":"<PACKET_TYPE>", ' +
                      '"command":"<COMMAND>",\n')
 
@@ -720,6 +721,9 @@ def display_packet():
             first_packet = False
         else:
             textview_buffer.insert(textview_buffer.get_end_iter(), ",\n")
+        ground_utc = time.gmtime()
+        ground_utc_string = time.strftime("%Y%m%dT%H%M%SZ", ground_utc)
+        tv_header = tv_header.replace('<GROUND_UTC>', ground_utc_string)
         if len(ax25_packet) >= 33:
             if ax25_packet[16] == 0x18:
                 dp_packet = SppPacket('TC', dynamic=False)
