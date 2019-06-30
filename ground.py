@@ -64,6 +64,8 @@ class Handler:
     radio = None
     display_spp = True
     display_ax25 = True
+    rf_amp_enabled = True
+    uhf_preamp_enabled = True
 
     def on_destroy(self, *args):
         do_save = True
@@ -88,6 +90,12 @@ class Handler:
             Handler.display_ax25 = True
         else:
             Handler.display_ax25 = False
+
+    def on_rf_amp(self, button, state):
+        Handler.rf_amp_enabled = state
+
+    def on_uhf_preamp(self, button, state):
+        Handler.uhf_preamp_enabled = state
 
     def on_dialog1_cancel(self, button):
         dialog1_cancel()
@@ -237,28 +245,40 @@ def process_command(button_label):
         expect_ack = True
 
     elif button_label == 'XMIT_HEALTH':
-        title = '"XMIT_HEALTH" Arguments'
-        labels = ['# Packets', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['1', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
-        tooltips = [
-            '(8-bit) Number of Health Packets to be downlinked.  0xFF means DUMP all outstanding payloads.',
-            'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        args = dialog1_run(title, labels, defaults, tooltips)
-        if dialog1_xmit:
-            do_transmit_packet = True
-            do_sn_increment = True
-            if args[0] == 0xFF:
-                expect_ack = False
-                downlink_payloads_pending = 0xFF
-                dump_mode = True
-            else:
-                expect_ack = True
-                downlink_payloads_pending = args[0] * health_payloads_per_packet
-                dump_mode = False
-            tc_data = array.array('B', [0x02])
-            tc_data.append(args[0])
-            tc_packet.set_spp_data(tc_data)
-            tc_packet.set_sequence_number(ground_sequence_number)
+        # title = '"XMIT_HEALTH" Arguments'
+        # labels = ['# Packets', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        # defaults = ['1', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
+        # tooltips = [
+        #     '(8-bit) Number of Health Packets to be downlinked.  0xFF means DUMP all outstanding payloads.',
+        #     'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        # args = dialog1_run(title, labels, defaults, tooltips)
+        # if dialog1_xmit:
+        #     do_transmit_packet = True
+        #     do_sn_increment = True
+        #     if args[0] == 0xFF:
+        #         expect_ack = False
+        #         downlink_payloads_pending = 0xFF
+        #         dump_mode = True
+        #     else:
+        #         expect_ack = True
+        #         downlink_payloads_pending = args[0] * health_payloads_per_packet
+        #         dump_mode = False
+        #     tc_data = array.array('B', [0x02])
+        #     tc_data.append(args[0])
+        #     tc_packet.set_spp_data(tc_data)
+        #     tc_packet.set_sequence_number(ground_sequence_number)
+        #
+        # For Libertas, Health payloads always 1
+        args = [1]
+        do_transmit_packet = True
+        do_sn_increment = True
+        expect_ack = True
+        downlink_payloads_pending = args[0] * health_payloads_per_packet
+        dump_mode = False
+        tc_data = array.array('B', [0x02])
+        tc_data.append(args[0])
+        tc_packet.set_spp_data(tc_data)
+        tc_packet.set_sequence_number(ground_sequence_number)
 
     elif button_label == 'XMIT_SCIENCE':
         title = '"XMIT_SCIENCE" Arguments'
@@ -975,6 +995,8 @@ def main():
     global filechooser2window
     global checkbutton1
     global checkbutton2
+    global switch1
+    global switch2
     global buffer_saved
     global buffer_filename
     global entry_objs
@@ -1167,8 +1189,8 @@ def main():
     textview = builder.get_object("textview1")
     textview_buffer = textview.get_buffer()
     textview.set_monospace(monospace=True)
-    textview2 = builder.get_object("textview2")
-    textview2_buffer = textview2.get_buffer()
+    # textview2 = builder.get_object("textview2")
+    # textview2_buffer = textview2.get_buffer()
     argwindow = builder.get_object("dialog1")
     filechooserwindow = builder.get_object("filechooserdialog1")
     filechooser2window = builder.get_object("filechooserdialog2")
@@ -1176,6 +1198,10 @@ def main():
     checkbutton1.set_active(True)
     checkbutton2 = builder.get_object('checkbutton2')
     checkbutton2.set_active(True)
+    switch1 = builder.get_object('switch1')
+    switch1.set_active(True)
+    switch2 = builder.get_object('switch2')
+    switch2.set_active(True)
     statusbar1 = builder.get_object('statusbar1')
     entry_objs = [
         builder.get_object("entry2"),
