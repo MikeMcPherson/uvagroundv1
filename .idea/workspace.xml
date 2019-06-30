@@ -3,7 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="c0de4057-71e4-4231-9caa-d870bcfcd790" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ground.py" beforeDir="false" afterPath="$PROJECT_DIR$/ground.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -12,17 +11,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="FileEditorManager">
-    <leaf>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/ground.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="269">
-              <caret line="605" column="53" selection-start-line="605" selection-start-column="53" selection-end-line="605" selection-end-column="53" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-    </leaf>
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -130,6 +119,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -146,7 +136,6 @@
           <select />
         </subPane>
       </pane>
-      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -272,7 +261,6 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-3" y="31" width="1686" height="999" extended-state="6" />
-    <editor active="true" />
     <layout>
       <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.17721519" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -348,13 +336,6 @@
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/json2Libertas.ini" />
-    <entry file="file://$PROJECT_DIR$/json2Libertas.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="435">
-          <caret line="108" column="48" selection-start-line="108" selection-start-column="48" selection-end-line="108" selection-end-column="48" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/ground/constant.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="420">
@@ -387,6 +368,13 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2471">
           <caret line="236" column="77" lean-forward="true" selection-start-line="236" selection-start-column="77" selection-end-line="236" selection-end-column="77" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/json2Libertas.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="660">
+          <caret line="108" column="48" selection-start-line="108" selection-start-column="48" selection-end-line="108" selection-end-column="48" />
         </state>
       </provider>
     </entry>
