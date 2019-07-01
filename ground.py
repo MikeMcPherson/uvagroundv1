@@ -44,16 +44,16 @@ import hexdump
 import random
 from nltk import word_tokenize
 from ground.constant import COMMAND_CODES, COMMAND_NAMES, health_payload_fields, science_payload_fields
-from ground.packet_functions import SppPacket, RadioDevice, GsCipher, kiss_wrap, kiss_unwrap
+from ground.packet_functions import SppPacket, RadioDevice, GsCipher, SequencerDevice, kiss_wrap, kiss_unwrap
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
 from ground.packet_functions import ax25_callsign, to_int16, to_int32
 
+
 """
 GUI Handlers
 """
-
 
 class Handler:
     filechooserwindow = None
@@ -64,8 +64,6 @@ class Handler:
     radio = None
     display_spp = True
     display_ax25 = True
-    rf_amp_enabled = True
-    uhf_preamp_enabled = True
 
     def on_destroy(self, *args):
         do_save = True
@@ -92,10 +90,10 @@ class Handler:
             Handler.display_ax25 = False
 
     def on_rf_amp(self, button, state):
-        Handler.rf_amp_enabled = state
+        SequencerDevice.rf_amp_enabled = state
 
     def on_uhf_preamp(self, button, state):
-        Handler.uhf_preamp_enabled = state
+        SequencerDevice.uhf_preamp_enabled = state
 
     def on_dialog1_cancel(self, button):
         dialog1_cancel()
@@ -598,6 +596,8 @@ def do_destroy(do_save):
     global textview_buffer
     global p_receive_packet
     global gs_xcvr_uhd_pid
+    global sequencer
+    sequencer.shutdown()
     textview_buffer.insert(textview_buffer.get_end_iter(), "]\n}\n")
     p_receive_packet.terminate()
     if gs_xcvr_uhd_pid is not None:
@@ -1035,6 +1035,7 @@ def main():
     global sc_ax25_callsign
     global gs_ax25_callsign
     global ax25_badpacket
+    global sequencer
 
     buffer_saved = False
     filedialog_save = False
@@ -1084,6 +1085,7 @@ def main():
     rx_port = int(config['ground']['rx_port'])
     tx_port = int(config['ground']['tx_port'])
     src_ssid = int(config['ground']['ssid'])
+    sequencer_relay_delay = config['ground']['sequencer_relay_delay']
     dst_callsign = config['libertas_sim']['callsign']
     dst_ssid = int(config['libertas_sim']['ssid'])
     use_flight_frequency = config['comms'].getboolean('use_flight_frequency')
@@ -1172,11 +1174,16 @@ def main():
     RadioDevice.use_lithium_cdi = use_lithium_cdi
     RadioDevice.logger = logger
 
+    SequencerDevice.relayDelay = sequencer_relay_delay
+    sequencer = SequencerDevice()
+
+
     radio = RadioDevice()
     radio.ack_timeout = ack_timeout * 1.25
     radio.max_retries = max_retries
     radio.open()
     SppPacket.radio = radio
+    RadioDevice.sequencer = sequencer
 
     q_receive_packet = mp.Queue()
     q_display_packet = mp.Queue()
