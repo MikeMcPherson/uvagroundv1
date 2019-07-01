@@ -397,19 +397,12 @@ class SequencerDevice:
     uhfLnaTx_pin = 7
     # vhfPol_pin = 9
     # uhfPol_pin = 10
-    radioSwitchPort1_pin = 8
-    radioSwitchPort2_pin = 9
-    radioSwitchPort3_pin = 10
-    antennaSwitchPort1_pin = 11
-    antennaSwitchPort2_pin = 12
-    antennaSwitchPort3_pin = 13
-    radioSwitchSense1_pin = 34
-    radioSwitchSense2_pin = 35
-    radioSwitchSense3_pin = 36
-    antennaSwitchSense1_pin = 37
-    antennaSwitchSense2_pin = 38
-    antennaSwitchSense3_pin = 39
+    radioSwitchPort_pin = [8, 9, 10]
+    antennaSwitchPort_pin = [11, 12, 13]
+    radioSwitchSense_pin = [34, 35, 36]
+    antennaSwitchSense_pin = [37, 38, 39]
     relayDelay = 0.250
+    coaxialPulseDelay = 0.080
     # Coaxial switches connected to USRP and antenna
     # 1 = direct (RX), 2 = RF power amp (TX)
     # 3 = USRP connected to dummy load, antenna grounded
@@ -435,17 +428,12 @@ class SequencerDevice:
         self.vhfLnaTx = False  # VHF LNA TX bypass, False = RX, True = TX
         # self.board.digital[self.vhfLnaTx_pin].write(0)
         self.uhfLnaTx = False  # UHF LNA TX bypass, False = RX, True = TX
-        self.board.digital[self.uhfLnaTx_pin].write(0)
+        self.uhf_preamp_on()
         self.vhfPol = False  # VHF array polarization, False = RHCP, True = LHCP
         # self.board.digital[self.vhfPol_pin].write(0)
         self.uhfPol = False  # UHF array polarization, False = RHCP, True = LHCP
         # self.board.digital[self.uhfPol_pin].write(0)
-        self.coaxialSwitch = 1
-        self.board.digital[self.radioSwitchPort1_pin].write(1)
-        self.board.digital[self.antennaSwitchPort1_pin].write(1)
-        time.sleep(self.relayDelay)
-        self.board.digital[self.radioSwitchPort1_pin].write(0)
-        self.board.digital[self.antennaSwitchPort1_pin].write(0)
+        self.coaxialSwitch = self.coaxialSwitchSet(1)
 
     def shutdown(self):
         # self.board.digital[self.rot2ctlPower_pin].write(1)
@@ -454,34 +442,40 @@ class SequencerDevice:
         # self.board.digital[self.uhfLnaPower_pin].write(1)
         self.board.digital[self.rfAmpTx_pin].write(0)
         # self.board.digital[self.vhfLnaTx_pin].write(0)
-        self.board.digital[self.uhfLnaTx_pin].write(0)
+        self.uhf_preamp_off()
         # self.board.digital[self.vhfPol_pin].write(0)
         # self.board.digital[self.uhfPol_pin].write(0)
-        self.board.digital[self.radioSwitchPort3_pin].write(1)
-        self.board.digital[self.antennaSwitchPort3_pin].write(1)
-        time.sleep(self.relayDelay)
-        self.board.digital[self.radioSwitchPort3_pin].write(0)
-        self.board.digital[self.antennaSwitchPort3_pin].write(0)
+        self.coaxialSwitch = self.coaxialSwitchSet(3)
 
     def transmit(self):
-        self.board.digital[self.radioSwitchPort2_pin].write(1)
-        self.board.digital[self.antennaSwitchPort2_pin].write(1)
+        if self.rf_amp_enabled:
+            self.coaxialSwitch = self.coaxialSwitchSet(2)
+        self.uhf_preamp_off()
         time.sleep(self.relayDelay)
-        self.board.digital[self.radioSwitchPort2_pin].write(0)
-        self.board.digital[self.antennaSwitchPort2_pin].write(0)
-        self.board.digital[self.uhfLnaTx_pin].write(0)
-        time.sleep(self.relayDelay)
-        self.board.digital[self.rfAmpTx_pin].write(1)
+        if self.rf_amp_enabled:
+            self.board.digital[self.rfAmpTx_pin].write(1)
 
     def receive(self):
         self.board.digital[self.rfAmpTx_pin].write(0)
+        self.uhf_preamp_on()
         time.sleep(self.relayDelay)
-        self.board.digital[self.uhfLnaTx_pin].write(1)
-        self.board.digital[self.radioSwitchPort1_pin].write(1)
-        self.board.digital[self.antennaSwitchPort1_pin].write(1)
-        time.sleep(self.relayDelay)
-        self.board.digital[self.radioSwitchPort1_pin].write(0)
-        self.board.digital[self.antennaSwitchPort1_pin].write(0)
+        self.coaxialSwitch = self.coaxialSwitchSet(1)
+
+    def uhf_preamp_off(self):
+        self.board.digital[self.uhfLnaTx_pin].write(0)
+
+    def uhf_preamp_on(self):
+        if self.uhf_preamp_enabled:
+            self.board.digital[self.uhfLnaTx_pin].write(1)
+
+    def coaxialSwitchSet(self, switchPort):
+        switchPin = switchPort - 1
+        self.board.digital[self.radioSwitchPort_pin[switchPin]].write(1)
+        self.board.digital[self.antennaSwitchPort_pin[switchPin]].write(1)
+        time.sleep(self.coaxialPulseDelay)
+        self.board.digital[self.radioSwitchPort_pin[switchPin]].write(0)
+        self.board.digital[self.antennaSwitchPort_pin[switchPin]].write(0)
+        return switchPort
 
 
 def queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger):

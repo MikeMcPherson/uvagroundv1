@@ -62,6 +62,7 @@ class Handler:
     filedialog2_save = False
     label11 = None
     radio = None
+    sequencer = None
     display_spp = True
     display_ax25 = True
 
@@ -94,6 +95,10 @@ class Handler:
 
     def on_uhf_preamp(self, button, state):
         SequencerDevice.uhf_preamp_enabled = state
+        if state:
+            self.sequencer.uhf_preamp_on()
+        else:
+            self.sequencer.uhf_preamp_off()
 
     def on_dialog1_cancel(self, button):
         dialog1_cancel()
@@ -1074,8 +1079,11 @@ def main():
     tm_packets_to_ack = []
     tm_packets_to_nak = []
 
+    script_folder_name = os.path.dirname(os.path.realpath(__file__))
+    ground_ini = script_folder_name + '/' + 'ground.ini'
+    keys_ini = script_folder_name + '/' + 'keys.ini'
     config = configparser.ConfigParser()
-    config.read(['ground.ini'])
+    config.read([ground_ini])
     debug = config['ground'].getboolean('debug')
     program_name = config['ground']['program_name']
     program_version = config['ground']['program_version']
@@ -1085,19 +1093,10 @@ def main():
     rx_port = int(config['ground']['rx_port'])
     tx_port = int(config['ground']['tx_port'])
     src_ssid = int(config['ground']['ssid'])
-    sequencer_relay_delay = config['ground']['sequencer_relay_delay']
+    sequencer_relay_delay = float(config['ground']['sequencer_relay_delay'])
     dst_callsign = config['libertas_sim']['callsign']
     dst_ssid = int(config['libertas_sim']['ssid'])
-    use_flight_frequency = config['comms'].getboolean('use_flight_frequency')
-    if use_flight_frequency:
-        gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd_flight'])
-    else:
-        gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd_dev'])
-    use_flight_keys = config['comms'].getboolean('use_flight_keys')
-    if use_flight_keys:
-        keys_file = 'keys.flight.ini'
-    else:
-        keys_file = 'keys.dev.ini'
+    gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
@@ -1110,7 +1109,7 @@ def main():
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
 
     config_keys = configparser.ConfigParser()
-    config_keys.read([keys_file])
+    config_keys.read([keys_ini])
     sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
     gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
     oa_key = config_keys['keys']['oa_key'].encode()
@@ -1176,6 +1175,7 @@ def main():
 
     SequencerDevice.relayDelay = sequencer_relay_delay
     sequencer = SequencerDevice()
+    Handler.sequencer = sequencer
 
 
     radio = RadioDevice()

@@ -24,6 +24,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
+import os
 import configparser
 import logging
 import array
@@ -91,8 +92,11 @@ def main():
     tx_port = 19500
 
     cf = currentframe()
+    script_folder_name = os.path.dirname(os.path.realpath(__file__))
+    ground_ini = script_folder_name + '/' + 'ground.ini'
+    keys_ini = script_folder_name + '/' + 'keys.ini'
     config = configparser.ConfigParser()
-    config.read(['ground.ini'])
+    config.read([ground_ini])
     debug = config['libertas_sim'].getboolean('debug')
     program_name = config['libertas_sim']['program_name']
     program_version = config['libertas_sim']['program_version']
@@ -105,11 +109,6 @@ def main():
     dst_ssid = int(config['ground']['ssid'])
     src_callsign = config['libertas_sim']['callsign']
     src_ssid = int(config['libertas_sim']['ssid'])
-    use_flight_keys = config['comms'].getboolean('use_flight_keys')
-    if use_flight_keys:
-        keys_file = 'keys.flight.ini'
-    else:
-        keys_file = 'keys.dev.ini'
     turnaround = int(config['comms']['turnaround'])
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
@@ -118,7 +117,7 @@ def main():
     use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
 
     config_keys = configparser.ConfigParser()
-    config_keys.read([keys_file])
+    config_keys.read([keys_ini])
     sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
     gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
     oa_key = config_keys['keys']['oa_key'].encode()
