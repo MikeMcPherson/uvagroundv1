@@ -1082,6 +1082,7 @@ def main():
     script_folder_name = os.path.dirname(os.path.realpath(__file__))
     ground_ini = script_folder_name + '/' + 'ground.ini'
     keys_ini = script_folder_name + '/' + 'keys.ini'
+    ground_glade = script_folder_name + '/' + 'ground.glade'
     config = configparser.ConfigParser()
     config.read([ground_ini])
     debug = config['ground'].getboolean('debug')
@@ -1190,7 +1191,7 @@ def main():
     SppPacket.q_display_packet = q_display_packet
 
     builder = Gtk.Builder()
-    builder.add_from_file("ground.glade")
+    builder.add_from_file(ground_glade)
     builder.connect_signals(Handler())
     appwindow = builder.get_object("applicationwindow1")
     textview = builder.get_object("textview1")

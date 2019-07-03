@@ -456,6 +456,7 @@ class SequencerDevice:
             self.board.digital[self.rfAmpTx_pin].write(1)
 
     def receive(self):
+        time.sleep(self.relayDelay)
         self.board.digital[self.rfAmpTx_pin].write(0)
         self.uhf_preamp_on()
         time.sleep(self.relayDelay)
