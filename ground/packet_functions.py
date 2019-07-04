@@ -648,12 +648,15 @@ def init_ax25_badpacket(ax25_header, their_packet_type):
 
 
 def ax25_callsign(b_callsign):
-    c_callsign = ''
-    for b in b_callsign[0:6]:
-        c_callsign = c_callsign + chr((b & 0b11111110) >> 1)
-    c_callsign = c_callsign + '-'
-    c_callsign = c_callsign + str((b_callsign[6] & 0b00011110) >> 1)
-    c_callsign = c_callsign.replace(' ','')
+    if len(b_callsign) < 6:
+        c_callsign = 'XX9XXX-9'
+    else:
+        c_callsign = ''
+        for b in b_callsign[0:6]:
+            c_callsign = c_callsign + chr((b & 0b11111110) >> 1)
+        c_callsign = c_callsign + '-'
+        c_callsign = c_callsign + str((b_callsign[6] & 0b00011110) >> 1)
+        c_callsign = c_callsign.replace(' ','')
     return c_callsign
 
 
