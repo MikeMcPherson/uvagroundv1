@@ -608,6 +608,12 @@ def do_destroy(do_save):
     if gs_xcvr_uhd_pid is not None:
         if gs_xcvr_uhd_pid.poll() is None:
             gs_xcvr_uhd_pid.kill()
+    time_utc = time.gmtime()
+    iq_file_string = time.strftime("/zfs0/iqfiles/%Y%m%dT%H%M%SZ.iq", time_utc)
+    try:
+        os.rename('/zfs0/iqfiles/pass_iq.tmp', iq_file_string)
+    except:
+        pass
     if do_save:
         save_file()
     Gtk.main_quit()
