@@ -58,13 +58,16 @@ class Handler:
         else:
             self.sequencer.uhf_preamp_on()
 
-    def on_radiobutton(self, button):
-        selected = button.get_label()
-        if selected is 'radiobutton1':
+    def on_radiobutton1(self, button):
+        if button.get_active():
             self.sequencer.coaxialSwitchSet(1)
-        if selected is 'radiobutton2':
+
+    def on_radiobutton2(self, button):
+        if button.get_active():
             self.sequencer.coaxialSwitchSet(2)
-        if selected is 'radiobutton3':
+
+    def on_radiobutton3(self, button):
+        if button.get_active():
             self.sequencer.coaxialSwitchSet(3)
 
 """
@@ -94,8 +97,8 @@ def main():
     switch_pa.set_active(False)
     sequencer.rf_amp_rx()
     switch_uhf_lna = builder.get_object('switch_uhf_lna')
-    switch_uhf_lna.set_active(True)
-    sequencer.uhf_preamp_off()
+    switch_uhf_lna.set_active(False)
+    sequencer.uhf_preamp_on()
     radiobutton1 = builder.get_object('radiobutton1')
     radiobutton1.set_active(True)
     sequencer.coaxialSwitchSet(1)

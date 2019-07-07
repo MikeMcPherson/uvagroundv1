@@ -141,6 +141,7 @@
                     <property name="receives_default">False</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
+                    <signal name="clicked" handler="on_radiobutton1" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -157,6 +158,7 @@
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">radiobutton1</property>
+                    <signal name="clicked" handler="on_radiobutton2" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -173,6 +175,7 @@
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">radiobutton1</property>
+                    <signal name="clicked" handler="on_radiobutton3" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
