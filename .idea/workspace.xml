@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="c0de4057-71e4-4231-9caa-d870bcfcd790" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/ground.py" beforeDir="false" afterPath="$PROJECT_DIR$/ground.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ground/packet_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/ground/packet_functions.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -12,26 +13,23 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/ground.py">
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/ground/packet_functions.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="564">
-              <caret line="636" selection-start-line="636" selection-end-line="636" />
+            <state relative-caret-position="284">
+              <caret line="500" column="68" selection-start-line="500" selection-start-column="62" selection-end-line="500" selection-end-column="68" />
               <folding>
-                <element signature="e#876#885#0" expanded="true" />
+                <element signature="e#868#878#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/ground/packet_functions.py">
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/sequencer_gui.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="4369">
-              <caret line="649" column="30" selection-start-line="649" selection-start-column="30" selection-end-line="649" selection-end-column="30" />
-              <folding>
-                <element signature="e#868#878#0" expanded="true" />
-              </folding>
+            <state relative-caret-position="105">
+              <caret line="27" selection-start-line="27" selection-end-line="27" />
             </state>
           </provider>
         </entry>
@@ -49,7 +47,6 @@
     <findStrings>
       <find>self.is_oa_command</find>
       <find>hexdump.hex</find>
-      <find>logger</find>
       <find>TRANSMIT</find>
       <find />
       <find>gs_ax25_callsign</find>
@@ -77,6 +74,7 @@
       <find>;</find>
       <find>true</find>
       <find>SequencerDevice</find>
+      <find>logger</find>
     </findStrings>
     <replaceStrings>
       <replace>cf.f_lineno</replace>
@@ -130,10 +128,11 @@
         <option value="$PROJECT_DIR$/ground/constant.py" />
         <option value="$PROJECT_DIR$/json2Libertas.py" />
         <option value="$PROJECT_DIR$/ground/sequencer_functions.py" />
-        <option value="$PROJECT_DIR$/ground.ini" />
         <option value="$PROJECT_DIR$/libertas_sim.py" />
-        <option value="$PROJECT_DIR$/ground/packet_functions.py" />
         <option value="$PROJECT_DIR$/ground.py" />
+        <option value="$PROJECT_DIR$/ground/packet_functions.py" />
+        <option value="$PROJECT_DIR$/ground.ini" />
+        <option value="$PROJECT_DIR$/sequencer_gui.py" />
       </list>
     </option>
   </component>
@@ -290,10 +289,9 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-3" y="31" width="1606" height="849" extended-state="6" />
-    <editor active="true" />
+    <frame x="-3" y="31" width="1686" height="999" extended-state="6" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.17479417" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.17420132" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -388,40 +386,50 @@
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/ground/sequencer_functions.py" />
-    <entry file="file://$PROJECT_DIR$/libertas_sim.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-855">
-          <caret line="27" selection-start-line="27" selection-end-line="27" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ground.ini">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="420">
-          <caret line="28" selection-start-line="28" selection-end-line="28" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/keys.ini">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
+    <entry file="file://$PROJECT_DIR$/ground.ini">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="705">
+          <caret line="47" column="22" selection-start-line="47" selection-start-column="22" selection-end-line="47" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ground.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="484">
+          <caret line="1252" column="135" selection-start-line="1252" selection-start-column="129" selection-end-line="1252" selection-end-column="135" />
+          <folding>
+            <element signature="e#876#885#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/ground/packet_functions.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4369">
-          <caret line="649" column="30" selection-start-line="649" selection-start-column="30" selection-end-line="649" selection-end-column="30" />
+        <state relative-caret-position="284">
+          <caret line="500" column="68" selection-start-line="500" selection-start-column="62" selection-end-line="500" selection-end-column="68" />
           <folding>
             <element signature="e#868#878#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ground.py">
+    <entry file="file://$PROJECT_DIR$/libertas_sim.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="564">
-          <caret line="636" selection-start-line="636" selection-end-line="636" />
+        <state relative-caret-position="497">
+          <caret line="131" selection-start-line="131" selection-end-line="132" />
           <folding>
-            <element signature="e#876#885#0" expanded="true" />
+            <element signature="e#906#915#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/sequencer_gui.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="105">
+          <caret line="27" selection-start-line="27" selection-end-line="27" />
         </state>
       </provider>
     </entry>

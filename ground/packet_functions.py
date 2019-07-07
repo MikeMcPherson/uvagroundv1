@@ -424,7 +424,7 @@ class SequencerDevice:
         self.uhfLnaPower = True  # UHF LNA 12VDC, False = off, True = on
         # self.board.digital[self.uhfLnaPower_pin].write(1)
         self.rfAmpTx = False  # RF power amplifier PTT, False = RX, True = TX
-        self.board.digital[self.rfAmpTx_pin].write(0)
+        self.rf_amp_rx()
         self.vhfLnaTx = False  # VHF LNA TX bypass, False = RX, True = TX
         # self.board.digital[self.vhfLnaTx_pin].write(0)
         self.uhfLnaTx = False  # UHF LNA TX bypass, False = RX, True = TX
@@ -440,7 +440,7 @@ class SequencerDevice:
         # self.board.digital[self.rfAmpPower_pin].write(1)
         # self.board.digital[self.vhfLnaPower_pin].write(1)
         # self.board.digital[self.uhfLnaPower_pin].write(1)
-        self.board.digital[self.rfAmpTx_pin].write(0)
+        self.rf_amp_rx()
         # self.board.digital[self.vhfLnaTx_pin].write(0)
         self.uhf_preamp_off()
         # self.board.digital[self.vhfPol_pin].write(0)
@@ -453,14 +453,20 @@ class SequencerDevice:
         self.uhf_preamp_off()
         time.sleep(self.relayDelay)
         if self.rf_amp_enabled:
-            self.board.digital[self.rfAmpTx_pin].write(1)
+            self.rf_amp_tx()
 
     def receive(self):
         time.sleep(self.relayDelay)
-        self.board.digital[self.rfAmpTx_pin].write(0)
+        self.rf_amp_rx()
         self.uhf_preamp_on()
         time.sleep(self.relayDelay)
         self.coaxialSwitch = self.coaxialSwitchSet(1)
+
+    def rf_amp_rx(self):
+        self.board.digital[self.rfAmpTx_pin].write(0)
+
+    def rf_amp_tx(self):
+        self.board.digital[self.rfAmpTx_pin].write(1)
 
     def uhf_preamp_off(self):
         self.board.digital[self.uhfLnaTx_pin].write(0)
