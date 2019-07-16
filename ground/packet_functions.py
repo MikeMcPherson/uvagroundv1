@@ -380,10 +380,12 @@ class RadioDevice:
             self.tx_obj.write(xmit_packet)
         else:
             if not self.radio_server:
-                self.sequencer.transmit()
+                if self.sequencer is not None:
+                    self.sequencer.transmit()
             self.tx_obj.send(xmit_packet)
             if not self.radio_server:
-                self.sequencer.receive()
+                if self.sequencer is not None:
+                    self.sequencer.receive()
 
 class SequencerDevice:
     relayOff = 1
