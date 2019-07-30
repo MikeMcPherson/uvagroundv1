@@ -1107,6 +1107,7 @@ def main():
     turnaround = float(config['comms']['turnaround'])
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
+    transmit_test = config['comms'].getboolean('transmit_test')
     use_serial = config['comms'].getboolean('use_serial')
     serial_device_name = config['comms']['serial_device_name']
     serial_device_baudrate = int(config['comms']['serial_device_baudrate'])
@@ -1182,6 +1183,7 @@ def main():
 
     SequencerDevice.relayDelay = sequencer_relay_delay
     sequencer = SequencerDevice()
+    sequencer.transmit_test = transmit_test
     Handler.sequencer = sequencer
 
 

@@ -412,17 +412,19 @@ class SequencerDevice:
     board = None
     rf_amp_enabled = None
     uhf_preamp_enabled = None
+    # For testing in transmit-only mode with VT listening
+    transmit_test = False
 
     def __init__(self):
         self.board = Arduino('/dev/ttyACM0')
         self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
         # self.board.digital[self.rot2ctlPower_pin].write(1)
-        SequencerDevice.rf_amp_enabled = True
+        self.rf_amp_enabled = True
         self.rfAmpPower = True  # RF power amplifier 12VDC, False = off, True = on
         # self.board.digital[self.rfAmpPower_pin].write(1)
         self.vhfLnaPower = True  # VHF LNA 12VDC, False = off, True = on
         # self.board.digital[self.vhfLnaPower_pin].write(1)
-        SequencerDevice.uhf_preamp_enabled = True
+        self.uhf_preamp_enabled = True
         self.uhfLnaPower = True  # UHF LNA 12VDC, False = off, True = on
         # self.board.digital[self.uhfLnaPower_pin].write(1)
         self.rfAmpTx = False  # RF power amplifier PTT, False = RX, True = TX
@@ -435,7 +437,10 @@ class SequencerDevice:
         # self.board.digital[self.vhfPol_pin].write(0)
         self.uhfPol = False  # UHF array polarization, False = RHCP, True = LHCP
         # self.board.digital[self.uhfPol_pin].write(0)
-        self.coaxialSwitch = self.coaxialSwitchSet(1)
+        if self.transmit_test:
+            self.coaxialSwitch = self.coaxialSwitchSet(2)
+        else:
+            self.coaxialSwitch = self.coaxialSwitchSet(1)
 
     def shutdown(self):
         # self.board.digital[self.rot2ctlPower_pin].write(1)
@@ -450,19 +455,22 @@ class SequencerDevice:
         self.coaxialSwitch = self.coaxialSwitchSet(3)
 
     def transmit(self):
-        if self.rf_amp_enabled:
-            self.coaxialSwitch = self.coaxialSwitchSet(2)
-        self.uhf_preamp_off()
-        time.sleep(self.relayDelay)
+        if not self.transmit_test:
+            if self.rf_amp_enabled:
+                self.coaxialSwitch = self.coaxialSwitchSet(2)
+            self.uhf_preamp_off()
+            time.sleep(self.relayDelay)
         if self.rf_amp_enabled:
             self.rf_amp_tx()
+            time.sleep(self.relayDelay)
 
     def receive(self):
         time.sleep(self.relayDelay)
         self.rf_amp_rx()
-        self.uhf_preamp_on()
-        time.sleep(self.relayDelay)
-        self.coaxialSwitch = self.coaxialSwitchSet(1)
+        if not self.transmit_test:
+            self.uhf_preamp_on()
+            time.sleep(self.relayDelay)
+            self.coaxialSwitch = self.coaxialSwitchSet(1)
 
     def rf_amp_rx(self):
         self.board.digital[self.rfAmpTx_pin].write(0)
