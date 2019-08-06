@@ -2,7 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="c0de4057-71e4-4231-9caa-d870bcfcd790" name="Default" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ground.ini" beforeDir="false" afterPath="$PROJECT_DIR$/ground.ini" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ground.py" beforeDir="false" afterPath="$PROJECT_DIR$/ground.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ground/packet_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/ground/packet_functions.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -16,69 +19,6 @@
         <option value="Python Script" />
       </list>
     </option>
-  </component>
-  <component name="FindInProjectRecents">
-    <findStrings>
-      <find>TRANSMIT</find>
-      <find />
-      <find>gs_ax25_callsign</find>
-      <find>radio</find>
-      <find>radio_server</find>
-      <find>ack_timeout</find>
-      <find>lithium</find>
-      <find>use_serial</find>
-      <find>use_lithium_cdi</find>
-      <find>HEX16</find>
-      <find>]</find>
-      <find>, 0.0, 0.0</find>
-      <find>UINT16</find>
-      <find>HEAD</find>
-      <find>\N</find>
-      <find>sql_lS_command</find>
-      <find>leapSecs</find>
-      <find>array</find>
-      <find>auto</find>
-      <find>idea</find>
-      <find>time</find>
-      <find>ground_utc</find>
-      <find>bool</find>
-      <find>//</find>
-      <find>;</find>
-      <find>true</find>
-      <find>SequencerDevice</find>
-      <find>logger</find>
-      <find>sequencer</find>
-      <find>textview_buffer.insert(textview_buffer.get_end_iter(),</find>
-    </findStrings>
-    <replaceStrings>
-      <replace>cf.f_lineno</replace>
-      <replace>, use_serial, turnaround)</replace>
-      <replace>[</replace>
-      <replace>save_tc_packet</replace>
-      <replace>tc_packet.command</replace>
-      <replace>tc_packet.data</replace>
-      <replace>tc_packet.spp_packet</replace>
-      <replace>tc_packet.spp_data</replace>
-      <replace>dp_packet</replace>
-      <replace>tm_packet.transmit()</replace>
-      <replace>make_ack('TC',</replace>
-      <replace>make_ack('TM',</replace>
-      <replace>XMIT</replace>
-      <replace />
-      <replace>UINT16</replace>
-      <replace>, 0.0]</replace>
-      <replace>, 0.0, 0.0]</replace>
-      <replace>, 1, 0]</replace>
-      <replace>, 1, 0</replace>
-      <replace>FLOAT16</replace>
-      <replace>\n</replace>
-      <replace>sql_lH_command</replace>
-      <replace>#</replace>
-      <replace>False</replace>
-      <replace>True</replace>
-      <replace>self</replace>
-      <replace>print(</replace>
-    </replaceStrings>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -107,7 +47,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.json2Libertas">
+  <component name="RunManager" selected="Python.request_test">
     <configuration name="json2Libertas" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="uvagroundv1" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -150,6 +90,27 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="request_test" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="uvagroundv1" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/request_test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="simDataLibertas" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="uvagroundv1" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -175,9 +136,11 @@
       <item itemvalue="Python.json2Libertas" />
       <item itemvalue="Python.libertas_sim" />
       <item itemvalue="Python.simDataLibertas" />
+      <item itemvalue="Python.request_test" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.request_test" />
         <item itemvalue="Python.json2Libertas" />
         <item itemvalue="Python.simDataLibertas" />
         <item itemvalue="Python.libertas_sim" />

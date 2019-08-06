@@ -1084,6 +1084,7 @@ def main():
     tc_packets_waiting_for_ack = []
     tm_packets_to_ack = []
     tm_packets_to_nak = []
+    sequencer_hostname = None
 
     script_folder_name = os.path.dirname(os.path.realpath(__file__))
     ground_ini = script_folder_name + '/' + 'ground.ini'
@@ -1100,14 +1101,13 @@ def main():
     rx_port = int(config['ground']['rx_port'])
     tx_port = int(config['ground']['tx_port'])
     src_ssid = int(config['ground']['ssid'])
-    sequencer_relay_delay = float(config['ground']['sequencer_relay_delay'])
     dst_callsign = config['libertas_sim']['callsign']
     dst_ssid = int(config['libertas_sim']['ssid'])
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
+    sequencer_hostname = config['comms']['sequencer_hostname']
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
-    transmit_test = config['comms'].getboolean('transmit_test')
     use_serial = config['comms'].getboolean('use_serial')
     serial_device_name = config['comms']['serial_device_name']
     serial_device_baudrate = int(config['comms']['serial_device_baudrate'])
@@ -1181,11 +1181,9 @@ def main():
     RadioDevice.use_lithium_cdi = use_lithium_cdi
     RadioDevice.logger = logger
 
-    SequencerDevice.relayDelay = sequencer_relay_delay
-    sequencer = SequencerDevice()
-    sequencer.transmit_test = transmit_test
+    SequencerDevice.logger = logger
+    sequencer = SequencerDevice(sequencer_hostname)
     Handler.sequencer = sequencer
-
 
     radio = RadioDevice()
     radio.ack_timeout = ack_timeout * 1.25

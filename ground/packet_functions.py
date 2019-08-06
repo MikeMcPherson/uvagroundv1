@@ -35,7 +35,7 @@ import random
 import inspect
 from functools import wraps
 from speck import SpeckCipher
-from pyfirmata import Arduino, util
+import requests
 
 
 FEND = 0xC0
@@ -388,110 +388,101 @@ class RadioDevice:
                     self.sequencer.receive()
 
 class SequencerDevice:
-    relayOff = 1
-    relayOn = 0
-    # rot2ctlPower_pin = 2  # Pin states are always relayOff = False, relayOn = True
-    # rfAmpPower_pin = 3
-    # vhfLnaPower_pin = 4
-    # uhfLnaPower_pin = 5
-    rfAmpTx_pin = 6
-    # vhfLnaTx_pin = 7
-    uhfLnaTx_pin = 7
-    # vhfPol_pin = 9
-    # uhfPol_pin = 10
-    radioSwitchPort_pin = [8, 9, 10]
-    antennaSwitchPort_pin = [11, 12, 13]
-    radioSwitchSense_pin = [34, 35, 36]
-    antennaSwitchSense_pin = [37, 38, 39]
-    relayDelay = 0.250
-    coaxialPulseDelay = 0.080
+    sequencer_hostname = None
+    rest_base = None
+    rest_powerOn = None
+    rest_PowerOff = None
+    rest_txPortSelect = None
+    rest_txPortSense = None
+    rest_uhfTxModeEnable = None
+    rest_uhfTxModeDisable = None
+    rest_txDelaySet = None
     # Coaxial switches connected to USRP and antenna
     # 1 = direct (RX), 2 = RF power amp (TX)
     # 3 = USRP connected to dummy load, antenna grounded
     coaxialSwitch = 3
-    board = None
     rf_amp_enabled = None
     uhf_preamp_enabled = None
-    # For testing in transmit-only mode with VT listening
-    transmit_test = False
+    tx_delay = 300
+    logger = None
 
-    def __init__(self):
-        self.board = Arduino('/dev/ttyACM0')
+    def __init__(self, hostname):
+        self.sequencer_hostname = hostname
+        self.rest_base = 'http://' + self.sequencer_hostname
+        self.rest_powerOn = self.rest_base + '/powerOn?param='
+        self.rest_powerOff = self.rest_base + '/powerOff?param='
+        self.rest_txPortSelect = self.rest_base + '/txPortSelect?param='
+        self.rest_txPortSense = self.rest_base + '/txPortSense'
+        self.rest_uhfTxModeEnable = self.rest_base + '/uhfTxModeEnable'
+        self.rest_uhfTxModeDisable = self.rest_base + '/uhfTxModeDisable'
+        self.rest_txDelaySet = self.rest_base + '/txDelaySet?param='
         self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
-        # self.board.digital[self.rot2ctlPower_pin].write(1)
         self.rf_amp_enabled = True
         self.rfAmpPower = True  # RF power amplifier 12VDC, False = off, True = on
-        # self.board.digital[self.rfAmpPower_pin].write(1)
         self.vhfLnaPower = True  # VHF LNA 12VDC, False = off, True = on
-        # self.board.digital[self.vhfLnaPower_pin].write(1)
         self.uhf_preamp_enabled = True
         self.uhfLnaPower = True  # UHF LNA 12VDC, False = off, True = on
-        # self.board.digital[self.uhfLnaPower_pin].write(1)
         self.rfAmpTx = False  # RF power amplifier PTT, False = RX, True = TX
-        self.rf_amp_rx()
         self.vhfLnaTx = False  # VHF LNA TX bypass, False = RX, True = TX
-        # self.board.digital[self.vhfLnaTx_pin].write(0)
         self.uhfLnaTx = False  # UHF LNA TX bypass, False = RX, True = TX
-        self.uhf_preamp_on()
         self.vhfPol = False  # VHF array polarization, False = RHCP, True = LHCP
-        # self.board.digital[self.vhfPol_pin].write(0)
         self.uhfPol = False  # UHF array polarization, False = RHCP, True = LHCP
-        # self.board.digital[self.uhfPol_pin].write(0)
-        if self.transmit_test:
-            self.coaxialSwitch = self.coaxialSwitchSet(2)
-        else:
-            self.coaxialSwitch = self.coaxialSwitchSet(1)
+        self.power_on('TXAMP')
+        self.power_on('ULNA')
+        self.power_on('ROT2PROG')
+        self.receive()
+        self.coaxialSwitch = 1
 
     def shutdown(self):
-        # self.board.digital[self.rot2ctlPower_pin].write(1)
-        # self.board.digital[self.rfAmpPower_pin].write(1)
-        # self.board.digital[self.vhfLnaPower_pin].write(1)
-        # self.board.digital[self.uhfLnaPower_pin].write(1)
-        self.rf_amp_rx()
-        # self.board.digital[self.vhfLnaTx_pin].write(0)
-        self.uhf_preamp_off()
-        # self.board.digital[self.vhfPol_pin].write(0)
-        # self.board.digital[self.uhfPol_pin].write(0)
-        self.coaxialSwitch = self.coaxialSwitchSet(3)
+        self.receive()
+        self.power_off('TXAMP')
+        self.power_off('ULNA')
+        self.coaxialSwitch = 3
+        self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
+        self.rf_amp_enabled = True
+        self.rfAmpPower = False  # RF power amplifier 12VDC, False = off, True = on
+        self.vhfLnaPower = False  # VHF LNA 12VDC, False = off, True = on
+        self.uhf_preamp_enabled = True
+        self.uhfLnaPower = False  # UHF LNA 12VDC, False = off, True = on
+        self.rfAmpTx = False  # RF power amplifier PTT, False = RX, True = TX
+        self.vhfLnaTx = False  # VHF LNA TX bypass, False = RX, True = TX
+        self.uhfLnaTx = False  # UHF LNA TX bypass, False = RX, True = TX
+        self.vhfPol = False  # VHF array polarization, False = RHCP, True = LHCP
+        self.uhfPol = False  # UHF array polarization, False = RHCP, True = LHCP
+
+    def tx_delay_set(self, txdelay):
+        self.tx_delay = txdelay
+        r = requests.get(self.rest_txDelaySet + str(self.tx_delay))
+
+    def power_on(self, device):
+        r = requests.get(self.rest_powerOn + device)
+
+    def power_off(self, device):
+        r = requests.get(self.rest_powerOff + device)
 
     def transmit(self):
-        if not self.transmit_test:
-            if self.rf_amp_enabled:
-                self.coaxialSwitch = self.coaxialSwitchSet(2)
-            self.uhf_preamp_off()
-            time.sleep(self.relayDelay)
-        if self.rf_amp_enabled:
-            self.rf_amp_tx()
-            time.sleep(self.relayDelay)
+        r = requests.get(self.rest_uhfTxModeEnable)
+        self.coaxialSwitch = 2
 
     def receive(self):
-        time.sleep(self.relayDelay)
-        self.rf_amp_rx()
-        if not self.transmit_test:
-            self.uhf_preamp_on()
-            time.sleep(self.relayDelay)
-            self.coaxialSwitch = self.coaxialSwitchSet(1)
+        r = requests.get(self.rest_uhfTxModeDisable)
+        self.coaxialSwitch = 1
 
     def rf_amp_rx(self):
-        self.board.digital[self.rfAmpTx_pin].write(0)
+        pass
 
     def rf_amp_tx(self):
-        self.board.digital[self.rfAmpTx_pin].write(1)
+        pass
 
     def uhf_preamp_off(self):
-        self.board.digital[self.uhfLnaTx_pin].write(0)
+        pass
 
     def uhf_preamp_on(self):
-        if self.uhf_preamp_enabled:
-            self.board.digital[self.uhfLnaTx_pin].write(1)
+        pass
 
     def coaxialSwitchSet(self, switchPort):
-        switchPin = switchPort - 1
-        self.board.digital[self.radioSwitchPort_pin[switchPin]].write(1)
-        self.board.digital[self.antennaSwitchPort_pin[switchPin]].write(1)
-        time.sleep(self.coaxialPulseDelay)
-        self.board.digital[self.radioSwitchPort_pin[switchPin]].write(0)
-        self.board.digital[self.antennaSwitchPort_pin[switchPin]].write(0)
+        rest_request = self.rest_txPortSelect + str(switchPort)
+        r = requests.get(rest_request)
         return switchPort
 
 
