@@ -382,6 +382,7 @@ class RadioDevice:
             if not self.radio_server:
                 if self.sequencer is not None:
                     self.sequencer.transmit()
+                    self.sequencer.txwait(5)
             self.tx_obj.send(xmit_packet)
             if not self.radio_server:
                 if self.sequencer is not None:
@@ -473,6 +474,9 @@ class SequencerDevice:
     def transmit(self):
         r = requests.get(self.rest_uhfTxModeEnable)
         self.coaxialSwitch = 2
+
+    def txwait(self, tx_timeout):
+        r = requests.get(self.rest_txWait)
 
     def receive(self):
         r = requests.get(self.rest_uhfTxModeDisable)
