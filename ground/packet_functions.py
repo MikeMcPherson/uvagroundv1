@@ -397,6 +397,11 @@ class SequencerDevice:
     rest_uhfTxModeEnable = None
     rest_uhfTxModeDisable = None
     rest_txDelaySet = None
+    rest_ulnaEnable = None
+    rest_ulnaDisable = None
+    rest_txampEnable = None
+    rest_txampDisable = None
+    rest_txWait = None
     # Coaxial switches connected to USRP and antenna
     # 1 = direct (RX), 2 = RF power amp (TX)
     # 3 = USRP connected to dummy load, antenna grounded
@@ -420,6 +425,7 @@ class SequencerDevice:
         self.rest_ulnaDisable = self.rest_base + '/ulnaEnable?param=0'
         self.rest_txampEnable = self.rest_base + '/txampEnable?param=1'
         self.rest_txampDisable = self.rest_base + '/txampEnable?param=0'
+        self.rest_txWait = self.rest_base + '/txWait?param=5'
         self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
         self.rf_amp_enabled = True
         self.rfAmpPower = True  # RF power amplifier 12VDC, False = off, True = on
