@@ -92,6 +92,10 @@ class Handler:
 
     def on_rf_amp(self, button, state):
         SequencerDevice.rf_amp_enabled = state
+        if state:
+            self.sequencer.txamp_enable()
+        else:
+            self.sequencer.txamp_disable()
 
     def on_uhf_preamp(self, button, state):
         SequencerDevice.uhf_preamp_enabled = state
@@ -1131,6 +1135,7 @@ def main():
     logging.info('%s %s: Run started', program_name, program_version)
     logger = mp.log_to_stderr()
     logger.setLevel(logging.INFO)
+    # Example: logger.info('Text to log from process %s with pid %s' % (p.name, p.pid))
 
     if use_serial:
         gs_xcvr_uhd_pid = None

@@ -416,6 +416,10 @@ class SequencerDevice:
         self.rest_uhfTxModeEnable = self.rest_base + '/uhfTxModeEnable'
         self.rest_uhfTxModeDisable = self.rest_base + '/uhfTxModeDisable'
         self.rest_txDelaySet = self.rest_base + '/txDelaySet?param='
+        self.rest_ulnaEnable = self.rest_base + '/ulnaEnable?param=1'
+        self.rest_ulnaDisable = self.rest_base + '/ulnaEnable?param=0'
+        self.rest_txampEnable = self.rest_base + '/txampEnable?param=1'
+        self.rest_txampDisable = self.rest_base + '/txampEnable?param=0'
         self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
         self.rf_amp_enabled = True
         self.rfAmpPower = True  # RF power amplifier 12VDC, False = off, True = on
@@ -468,17 +472,17 @@ class SequencerDevice:
         r = requests.get(self.rest_uhfTxModeDisable)
         self.coaxialSwitch = 1
 
-    def rf_amp_rx(self):
-        pass
+    def txamp_enable(self):
+        r = requests.get(self.rest_txampEnable)
 
-    def rf_amp_tx(self):
-        pass
+    def txamp_disable(self):
+        r = requests.get(self.rest_txampDisable)
 
     def uhf_preamp_off(self):
-        pass
+        r = requests.get(self.rest_ulnaDisable)
 
     def uhf_preamp_on(self):
-        pass
+        r = requests.get(self.rest_ulnaEnable)
 
     def coaxialSwitchSet(self, switchPort):
         rest_request = self.rest_txPortSelect + str(switchPort)
