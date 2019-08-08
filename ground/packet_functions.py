@@ -463,40 +463,40 @@ class SequencerDevice:
 
     def tx_delay_set(self, txdelay):
         self.tx_delay = txdelay
-        r = requests.get(self.rest_txDelaySet + str(self.tx_delay))
+        r = requests.get(self.rest_txDelaySet + str(self.tx_delay), timeout=5)
 
     def power_on(self, device):
-        r = requests.get(self.rest_powerOn + device)
+        r = requests.get(self.rest_powerOn + device, timeout=5)
 
     def power_off(self, device):
-        r = requests.get(self.rest_powerOff + device)
+        r = requests.get(self.rest_powerOff + device, timeout=5)
 
     def transmit(self):
-        r = requests.get(self.rest_uhfTxModeEnable)
+        r = requests.get(self.rest_uhfTxModeEnable, timeout=5)
         self.coaxialSwitch = 2
 
     def txwait(self, tx_timeout):
-        r = requests.get(self.rest_txWait)
+        r = requests.get(self.rest_txWait, timeout=10)
 
     def receive(self):
-        r = requests.get(self.rest_uhfTxModeDisable)
+        r = requests.get(self.rest_uhfTxModeDisable, timeout=5)
         self.coaxialSwitch = 1
 
     def txamp_enable(self):
-        r = requests.get(self.rest_txampEnable)
+        r = requests.get(self.rest_txampEnable, timeout=5)
 
     def txamp_disable(self):
-        r = requests.get(self.rest_txampDisable)
+        r = requests.get(self.rest_txampDisable, timeout=5)
 
     def uhf_preamp_off(self):
-        r = requests.get(self.rest_ulnaDisable)
+        r = requests.get(self.rest_ulnaDisable, timeout=5)
 
     def uhf_preamp_on(self):
-        r = requests.get(self.rest_ulnaEnable)
+        r = requests.get(self.rest_ulnaEnable, timeout=5)
 
     def coaxialSwitchSet(self, switchPort):
         rest_request = self.rest_txPortSelect + str(switchPort)
-        r = requests.get(rest_request)
+        r = requests.get(rest_request, timeout=5)
         return switchPort
 
 
