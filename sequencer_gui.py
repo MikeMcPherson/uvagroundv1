@@ -48,9 +48,9 @@ class Handler:
 
     def on_switch_pa(self, button, state):
         if state:
-            self.sequencer.rf_amp_tx()
+            pass
         else:
-            self.sequencer.rf_amp_rx()
+            pass
 
     def on_switch_uhf_lna(self, button, state):
         if state:
@@ -83,10 +83,9 @@ def main():
     config.read([ground_ini])
     program_name = 'Sequencer'
     program_version = config['ground']['program_version']
-    sequencer_relay_delay = float(config['ground']['sequencer_relay_delay'])
+    sequencer_hostname = config['comms']['sequencer_hostname']
 
-    SequencerDevice.relayDelay = sequencer_relay_delay
-    sequencer = SequencerDevice()
+    sequencer = SequencerDevice(sequencer_hostname)
     Handler.sequencer = sequencer
 
     builder = Gtk.Builder()
@@ -95,7 +94,7 @@ def main():
     appwindow = builder.get_object("applicationwindow1")
     switch_pa = builder.get_object('switch_pa')
     switch_pa.set_active(False)
-    sequencer.rf_amp_rx()
+    sequencer.txamp_disable()
     switch_uhf_lna = builder.get_object('switch_uhf_lna')
     switch_uhf_lna.set_active(False)
     sequencer.uhf_preamp_on()

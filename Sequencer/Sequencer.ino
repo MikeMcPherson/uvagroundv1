@@ -535,28 +535,9 @@ int readDcPower(String command) {
   return timeStamp;
 }
 
-#define POWERSAMPLES 500
 int txWait(String command) {
-  int tempPower[POWERSAMPLES];
-  int txTimeout = command.toInt();
-  int i;
-  for(i = 0; i < POWERSAMPLES; i++) {
-    tempPower[i] = 0;
-  }
   txampRfPowerMax = analogRead(txampRfPowerMonitorPin);
-  for(i = 0; i < POWERSAMPLES; i++) {
-    tempPower[i] = analogRead(txampRfPowerMonitorPin);
-//    delay(100);
-  }
-  txampRfPowerMax = 0;
-  for(i = 0; i < POWERSAMPLES; i++) {
-    Serial.print(i);
-    Serial.print(' ');
-    Serial.println(tempPower[i]);
-    if(tempPower[i] > txampRfPowerMax) {
-      txampRfPowerMax = tempPower[i];
-    }
-  }
+  txampRfPower = txampRfPowerMax;
   seqError = 0;
   timeStamp = millis();
   Serial.print("txWait ");
