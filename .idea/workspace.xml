@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="c0de4057-71e4-4231-9caa-d870bcfcd790" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Sequencer/Sequencer.ino" beforeDir="false" afterPath="$PROJECT_DIR$/Sequencer/Sequencer.ino" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ground/packet_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/ground/packet_functions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequencer_gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/sequencer_gui.py" afterDir="false" />
-    </list>
+    <list default="true" id="c0de4057-71e4-4231-9caa-d870bcfcd790" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
