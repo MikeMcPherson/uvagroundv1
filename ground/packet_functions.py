@@ -383,10 +383,11 @@ class RadioDevice:
                 if self.sequencer is not None:
                     self.sequencer.transmit()
                     self.sequencer.txwait(5)
+                    time.sleep(0.5)
             self.tx_obj.send(xmit_packet)
             if not self.radio_server:
                 if self.sequencer is not None:
-                    time.sleep(1.0)
+                    time.sleep(0.500)
                     self.sequencer.receive()
 
 class SequencerDevice:
