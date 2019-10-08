@@ -27,6 +27,7 @@
 
 #include <SPI.h>
 #include <Ethernet.h>
+#include <PubSubClient.h>
 #include <aREST.h>
 #include <avr/wdt.h>
 #include <Adafruit_INA260.h>
@@ -96,30 +97,30 @@ Adafruit_INA219 upolPowerMonitor(upolPowerI2cAddress);
 aREST rest = aREST();
 
 // Variables to be exposed
-  int seqError = 0;
-  int antSense1 = 0;
-  int antSense2 = 0;
-  int antSense3 = 0;
-  int antPortSensed = 0;
-  int radioSense1 = 0;
-  int radioSense2 = 0;
-  int radioSense3 = 0;
-  int radioPortSensed = 0;
-  int txDelay = 300;
-  float txAmpVoltage = 0;
-  float txAmpCurrent = 0;
-  float rot2progVoltage = 0;
-  float rot2progCurrent = 0;
-  float ulnaVoltage = 0;
-  float ulnaCurrent = 0;
-  float upolVoltage = 0;
-  float upolCurrent = 0;
-  int timeStamp = 0;
-  int ulnaEnabled = FALSE;  // false = 0, true != 0; bool not supported by arest.io
-  int txampEnabled = FALSE;
-  int txTimeout = 5;  // Timeout in seconds
-  int txampRfPower = 0;
-  int txampRfPowerMax = 0;
+int seqError = 0;
+int antSense1 = 0;
+int antSense2 = 0;
+int antSense3 = 0;
+int antPortSensed = 0;
+int radioSense1 = 0;
+int radioSense2 = 0;
+int radioSense3 = 0;
+int radioPortSensed = 0;
+int txDelay = 300;
+float txAmpVoltage = 0;
+float txAmpCurrent = 0;
+float rot2progVoltage = 0;
+float rot2progCurrent = 0;
+float ulnaVoltage = 0;
+float ulnaCurrent = 0;
+float upolVoltage = 0;
+float upolCurrent = 0;
+int timeStamp = 0;
+int ulnaEnabled = FALSE;  // false = 0, true != 0; bool not supported by arest.io
+int txampEnabled = FALSE;
+int txTimeout = 5;  // Timeout in seconds
+int txampRfPower = 0;
+int txampRfPowerMax = 0;
 
 void setup(void)
 {
@@ -233,13 +234,13 @@ void setup(void)
   Serial.println(timeStamp);
 
   // Start watchdog
-  wdt_enable(WDTO_4S);
+//  wdt_enable(WDTO_4S);
 }
 
 void loop() {
   EthernetClient client = server.available();
   rest.handle(client);
-  wdt_reset();
+//  wdt_reset();
 }
 
 void pinSet(int pinNumber, int state) {
@@ -276,7 +277,7 @@ int powerOn(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int powerOff(String command) {
@@ -309,7 +310,7 @@ int powerOff(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int txPortSelect(String command) {
@@ -351,7 +352,7 @@ int txPortSelect(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int txPortSense(String command) {
@@ -376,11 +377,12 @@ int txPortSense(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int ulnaTxMode(String command) {
   pinSet(ulnaTxPin,HIGH);
+  seqError = 0;
   timeStamp = millis();
   Serial.print("ulnaTxMode ");
   Serial.print(command);
@@ -388,7 +390,7 @@ int ulnaTxMode(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int ulnaRxMode(String command) {
@@ -401,7 +403,7 @@ int ulnaRxMode(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int ulnaEnable(String command) {
@@ -419,7 +421,7 @@ int ulnaEnable(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int uhfTxampTx(String command) {
@@ -432,7 +434,7 @@ int uhfTxampTx(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int uhfTxampRx(String command) {
@@ -445,7 +447,7 @@ int uhfTxampRx(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int txampEnable(String command) {
@@ -463,7 +465,7 @@ int txampEnable(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int uhfTxModeEnable(String command) {
@@ -479,7 +481,7 @@ int uhfTxModeEnable(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int uhfTxModeDisable(String command) {
@@ -494,7 +496,7 @@ int uhfTxModeDisable(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int txDelaySet(String command) {
@@ -512,7 +514,7 @@ int txDelaySet(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int readDcPower(String command) {
@@ -532,7 +534,7 @@ int readDcPower(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int txWait(String command) {
@@ -546,7 +548,7 @@ int txWait(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }
 
 int readRfPower(String command) {
@@ -560,5 +562,5 @@ int readRfPower(String command) {
   Serial.print(seqError);
   Serial.print(" ");
   Serial.println(timeStamp);
-  return timeStamp;
+  return seqError;
 }

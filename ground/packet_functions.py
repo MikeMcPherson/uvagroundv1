@@ -380,17 +380,12 @@ class RadioDevice:
             self.tx_obj.write(xmit_packet)
         else:
             if not self.radio_server:
-                if self.sequencer is not None:
-                    self.sequencer.transmit()
-                    self.sequencer.txwait(5)
-                    time.sleep(0.5)
+                self.sequencer.transmit()
+                self.sequencer.txwait(5)
             self.tx_obj.send(xmit_packet)
-            if not self.radio_server:
-                if self.sequencer is not None:
-                    time.sleep(0.500)
-                    self.sequencer.receive()
 
 class SequencerDevice:
+    sequencer_enable = None
     sequencer_hostname = None
     rest_base = None
     rest_powerOn = None
@@ -414,91 +409,108 @@ class SequencerDevice:
     tx_delay = 300
     logger = None
 
-    def __init__(self, hostname):
-        self.sequencer_hostname = hostname
-        self.rest_base = 'http://' + self.sequencer_hostname
-        self.rest_powerOn = self.rest_base + '/powerOn?param='
-        self.rest_powerOff = self.rest_base + '/powerOff?param='
-        self.rest_txPortSelect = self.rest_base + '/txPortSelect?param='
-        self.rest_txPortSense = self.rest_base + '/txPortSense'
-        self.rest_uhfTxModeEnable = self.rest_base + '/uhfTxModeEnable'
-        self.rest_uhfTxModeDisable = self.rest_base + '/uhfTxModeDisable'
-        self.rest_txDelaySet = self.rest_base + '/txDelaySet?param='
-        self.rest_ulnaEnable = self.rest_base + '/ulnaEnable?param=1'
-        self.rest_ulnaDisable = self.rest_base + '/ulnaEnable?param=0'
-        self.rest_txampEnable = self.rest_base + '/txampEnable?param=1'
-        self.rest_txampDisable = self.rest_base + '/txampEnable?param=0'
-        self.rest_txWait = self.rest_base + '/txWait?param=5'
-        self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
-        self.rf_amp_enabled = True
-        self.rfAmpPower = True  # RF power amplifier 12VDC, False = off, True = on
-        self.vhfLnaPower = True  # VHF LNA 12VDC, False = off, True = on
-        self.uhf_preamp_enabled = True
-        self.uhfLnaPower = True  # UHF LNA 12VDC, False = off, True = on
-        self.rfAmpTx = False  # RF power amplifier PTT, False = RX, True = TX
-        self.vhfLnaTx = False  # VHF LNA TX bypass, False = RX, True = TX
-        self.uhfLnaTx = False  # UHF LNA TX bypass, False = RX, True = TX
-        self.vhfPol = False  # VHF array polarization, False = RHCP, True = LHCP
-        self.uhfPol = False  # UHF array polarization, False = RHCP, True = LHCP
-        self.power_on('TXAMP')
-        self.power_on('ULNA')
-        self.power_on('ROT2PROG')
-        self.receive()
-        self.coaxialSwitch = 1
+    def __init__(self, enable, hostname):
+        self.sequencer_enable = enable
+        if self.sequencer_enable:
+            self.sequencer_hostname = hostname
+            self.rest_base = 'http://' + self.sequencer_hostname
+            self.rest_powerOn = self.rest_base + '/powerOn?param='
+            self.rest_powerOff = self.rest_base + '/powerOff?param='
+            self.rest_txPortSelect = self.rest_base + '/txPortSelect?param='
+            self.rest_txPortSense = self.rest_base + '/txPortSense'
+            self.rest_uhfTxModeEnable = self.rest_base + '/uhfTxModeEnable'
+            self.rest_uhfTxModeDisable = self.rest_base + '/uhfTxModeDisable'
+            self.rest_txDelaySet = self.rest_base + '/txDelaySet?param='
+            self.rest_ulnaEnable = self.rest_base + '/ulnaEnable?param=1'
+            self.rest_ulnaDisable = self.rest_base + '/ulnaEnable?param=0'
+            self.rest_txampEnable = self.rest_base + '/txampEnable?param=1'
+            self.rest_txampDisable = self.rest_base + '/txampEnable?param=0'
+            self.rest_txWait = self.rest_base + '/txWait?param=5'
+            self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
+            self.rf_amp_enabled = True
+            self.rfAmpPower = True  # RF power amplifier 12VDC, False = off, True = on
+            self.vhfLnaPower = True  # VHF LNA 12VDC, False = off, True = on
+            self.uhf_preamp_enabled = True
+            self.uhfLnaPower = True  # UHF LNA 12VDC, False = off, True = on
+            self.rfAmpTx = False  # RF power amplifier PTT, False = RX, True = TX
+            self.vhfLnaTx = False  # VHF LNA TX bypass, False = RX, True = TX
+            self.uhfLnaTx = False  # UHF LNA TX bypass, False = RX, True = TX
+            self.vhfPol = False  # VHF array polarization, False = RHCP, True = LHCP
+            self.uhfPol = False  # UHF array polarization, False = RHCP, True = LHCP
+            self.power_on('TXAMP')
+            self.power_on('ULNA')
+            self.power_on('ROT2PROG')
+            self.receive()
+            self.coaxialSwitch = 1
 
     def shutdown(self):
-        self.receive()
-        self.power_off('TXAMP')
-        self.power_off('ULNA')
-        self.coaxialSwitch = 3
-        self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
-        self.rf_amp_enabled = True
-        self.rfAmpPower = False  # RF power amplifier 12VDC, False = off, True = on
-        self.vhfLnaPower = False  # VHF LNA 12VDC, False = off, True = on
-        self.uhf_preamp_enabled = True
-        self.uhfLnaPower = False  # UHF LNA 12VDC, False = off, True = on
-        self.rfAmpTx = False  # RF power amplifier PTT, False = RX, True = TX
-        self.vhfLnaTx = False  # VHF LNA TX bypass, False = RX, True = TX
-        self.uhfLnaTx = False  # UHF LNA TX bypass, False = RX, True = TX
-        self.vhfPol = False  # VHF array polarization, False = RHCP, True = LHCP
-        self.uhfPol = False  # UHF array polarization, False = RHCP, True = LHCP
+        if self.sequencer_enable:
+            self.receive()
+            self.power_off('TXAMP')
+            self.power_off('ULNA')
+            self.coaxialSwitchSet(3)
+            self.coaxialSwitch = 3
+            self.rot2ctlPower = True  # Rotator controller 12VDC, False = off, True = on
+            self.rf_amp_enabled = True
+            self.rfAmpPower = False  # RF power amplifier 12VDC, False = off, True = on
+            self.vhfLnaPower = False  # VHF LNA 12VDC, False = off, True = on
+            self.uhf_preamp_enabled = True
+            self.uhfLnaPower = False  # UHF LNA 12VDC, False = off, True = on
+            self.rfAmpTx = False  # RF power amplifier PTT, False = RX, True = TX
+            self.vhfLnaTx = False  # VHF LNA TX bypass, False = RX, True = TX
+            self.uhfLnaTx = False  # UHF LNA TX bypass, False = RX, True = TX
+            self.vhfPol = False  # VHF array polarization, False = RHCP, True = LHCP
+            self.uhfPol = False  # UHF array polarization, False = RHCP, True = LHCP
 
     def tx_delay_set(self, txdelay):
-        self.tx_delay = txdelay
-        r = requests.get(self.rest_txDelaySet + str(self.tx_delay), timeout=5)
+        if self.sequencer_enable:
+            self.tx_delay = txdelay
+            r = requests.get(self.rest_txDelaySet + str(self.tx_delay), timeout=5)
 
     def power_on(self, device):
-        r = requests.get(self.rest_powerOn + device, timeout=5)
+        if self.sequencer_enable:
+            r = requests.get(self.rest_powerOn + device, timeout=5)
 
     def power_off(self, device):
-        r = requests.get(self.rest_powerOff + device, timeout=5)
+        if self.sequencer_enable:
+            r = requests.get(self.rest_powerOff + device, timeout=5)
 
     def transmit(self):
-        r = requests.get(self.rest_uhfTxModeEnable, timeout=5)
-        self.coaxialSwitch = 2
+        if self.sequencer_enable:
+            r = requests.get(self.rest_uhfTxModeEnable, timeout=5)
+    #        self.logger.info('seqError = %s' % r.json())
+            self.coaxialSwitch = 2
 
     def txwait(self, tx_timeout):
-        r = requests.get(self.rest_txWait, timeout=10)
+        if self.sequencer_enable:
+            r = requests.get(self.rest_txWait, timeout=10)
+            time.sleep(0.5)
 
     def receive(self):
-        r = requests.get(self.rest_uhfTxModeDisable, timeout=5)
-        self.coaxialSwitch = 1
+        if self.sequencer_enable:
+            r = requests.get(self.rest_uhfTxModeDisable, timeout=5)
+            self.coaxialSwitch = 1
 
     def txamp_enable(self):
-        r = requests.get(self.rest_txampEnable, timeout=5)
+        if self.sequencer_enable:
+            r = requests.get(self.rest_txampEnable, timeout=5)
 
     def txamp_disable(self):
-        r = requests.get(self.rest_txampDisable, timeout=5)
+        if self.sequencer_enable:
+            r = requests.get(self.rest_txampDisable, timeout=5)
 
     def uhf_preamp_off(self):
-        r = requests.get(self.rest_ulnaDisable, timeout=5)
+        if self.sequencer_enable:
+            r = requests.get(self.rest_ulnaDisable, timeout=5)
 
     def uhf_preamp_on(self):
-        r = requests.get(self.rest_ulnaEnable, timeout=5)
+        if self.sequencer_enable:
+            r = requests.get(self.rest_ulnaEnable, timeout=5)
 
     def coaxialSwitchSet(self, switchPort):
-        rest_request = self.rest_txPortSelect + str(switchPort)
-        r = requests.get(rest_request, timeout=5)
+        if self.sequencer_enable:
+            rest_request = self.rest_txPortSelect + str(switchPort)
+            r = requests.get(rest_request, timeout=5)
         return switchPort
 
 
@@ -507,6 +519,7 @@ def queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger
         q_receive_packet.put(ax25_packet)
     else:
         ax25_src_callsign = ax25_callsign(ax25_packet[7:14])
+        logger.info('SRC callsign %s' % (ax25_src_callsign))
         is_oa_packet = is_oa_command(ax25_packet)
         if ax25_src_callsign != my_ax25_callsign:
             if SppPacket.encrypt_uplink and (ax25_src_callsign == SppPacket.gs_ax25_callsign) and (not is_oa_packet):
@@ -515,7 +528,7 @@ def queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger
             q_receive_packet.put(ax25_packet)
 
 
-def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
+def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger, sequencer):
     if radio.use_serial:
         while True:
             rcv_buffer = array.array('B', [])
@@ -535,10 +548,6 @@ def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
         rcv_buffer = array.array('B', [])
         while True:
             rcv_string = radio.receive(0)
-            # if radio.ack_timeout_flag:
-            #     ax25_packet = 0xFF
-            #     queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
-            #     in_kiss_packet = False
             if rcv_string is None:
                 ax25_packet = None
                 queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
@@ -551,6 +560,7 @@ def receive_packet(my_ax25_callsign, radio, q_receive_packet, logger):
                             in_kiss_packet = False
                             ax25_packet = kiss_unwrap(rcv_buffer)
                             queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger)
+                            sequencer.receive()
                     else:
                         if c == FEND:
                             in_kiss_packet = True

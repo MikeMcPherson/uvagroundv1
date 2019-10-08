@@ -1055,6 +1055,7 @@ def main():
     buffer_saved = False
     filedialog_save = False
     first_packet = True
+    ops_mode = None
     radio_server = False
     rx_hostname = 'localhost'
     tx_hostname = 'localhost'
@@ -1088,6 +1089,8 @@ def main():
     tc_packets_waiting_for_ack = []
     tm_packets_to_ack = []
     tm_packets_to_nak = []
+    autostart_radio = None
+    sequencer_enable = True
     sequencer_hostname = None
 
     script_folder_name = os.path.dirname(os.path.realpath(__file__))
@@ -1100,23 +1103,43 @@ def main():
     program_name = config['ground']['program_name']
     program_version = config['ground']['program_version']
     src_callsign = config['ground']['callsign']
-    rx_hostname = config['ground']['rx_hostname']
-    tx_hostname = config['ground']['tx_hostname']
-    rx_port = int(config['ground']['rx_port'])
-    tx_port = int(config['ground']['tx_port'])
+    ops_mode = config['ground']['ops_mode']
+    if ops_mode.upper() == 'LOCAL':
+        rx_hostname = config['ground']['rx_hostname_local']
+        tx_hostname = config['ground']['tx_hostname_local']
+        rx_port = int(config['ground']['rx_port_local'])
+        tx_port = int(config['ground']['tx_port_local'])
+        sequencer_enable = True
+        autostart_radio = True
+    elif ops_mode.upper() == 'SIM':
+        rx_hostname = config['ground']['rx_hostname_sim']
+        tx_hostname = config['ground']['tx_hostname_sim']
+        rx_port = int(config['ground']['rx_port_sim'])
+        tx_port = int(config['ground']['tx_port_sim'])
+        sequencer_enable = False
+        autostart_radio = False
+    elif ops_mode.upper() == 'VTGS':
+        rx_hostname = config['ground']['rx_hostname_vtgs']
+        tx_hostname = config['ground']['tx_hostname_vtgs']
+        rx_port = int(config['ground']['rx_port_vtgs'])
+        tx_port = int(config['ground']['tx_port_vtgs'])
+        sequencer_enable = False
+        autostart_radio = False
+    else:
+        print('Invalid ops_mode')
+        exit()
     src_ssid = int(config['ground']['ssid'])
     dst_callsign = config['libertas_sim']['callsign']
     dst_ssid = int(config['libertas_sim']['ssid'])
     gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
-    sequencer_hostname = config['comms']['sequencer_hostname']
+    sequencer_hostname = config['ground']['sequencer_hostname']
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
     serial_device_name = config['comms']['serial_device_name']
     serial_device_baudrate = int(config['comms']['serial_device_baudrate'])
     use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
-    autostart_radio = config['comms'].getboolean('autostart_radio')
     uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
 
@@ -1187,7 +1210,7 @@ def main():
     RadioDevice.logger = logger
 
     SequencerDevice.logger = logger
-    sequencer = SequencerDevice(sequencer_hostname)
+    sequencer = SequencerDevice(sequencer_enable, sequencer_hostname)
     Handler.sequencer = sequencer
 
     radio = RadioDevice()
@@ -1255,7 +1278,7 @@ def main():
     Handler.filechooser2window = filechooser2window
     Handler.label11 = label11
 
-    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(gs_ax25_callsign, radio, q_receive_packet, logger))
+    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(gs_ax25_callsign, radio, q_receive_packet, logger, sequencer))
     p_receive_packet.start()
     process_thread = threading.Thread(name='process_received', target=process_received, daemon=True)
     process_thread.start()
