@@ -24,6 +24,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
 import os
+import sys
 import subprocess
 import configparser
 import logging
@@ -49,6 +50,14 @@ from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
 from ground.packet_functions import ax25_callsign, to_int16, to_int32
+
+
+def handle_exceptions(exc_type, exc_value, exc_traceback):
+    print('Handling exception')
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+
+sys.excepthook = handle_exceptions
 
 
 """
@@ -605,7 +614,9 @@ def do_destroy(do_save):
     global textview_buffer
     global p_receive_packet
     global gs_xcvr_uhd_pid
+    global radio
     global sequencer
+    radio.close()
     sequencer.shutdown()
     textview_buffer.insert(textview_buffer.get_end_iter(), "]\n}\n")
     p_receive_packet.terminate()
@@ -1050,6 +1061,7 @@ def main():
     global sc_ax25_callsign
     global gs_ax25_callsign
     global ax25_badpacket
+    global radio
     global sequencer
 
     buffer_saved = False
@@ -1127,7 +1139,7 @@ def main():
         autostart_radio = False
     else:
         print('Invalid ops_mode')
-        exit()
+        sys.exit()
     src_ssid = int(config['ground']['ssid'])
     dst_callsign = config['libertas_sim']['callsign']
     dst_ssid = int(config['libertas_sim']['ssid'])
@@ -1288,6 +1300,7 @@ def main():
     GObject.threads_init()
     GObject.timeout_add(500, display_packet)
     Gtk.main()
+    sys.exit()
 
 
 if __name__ == "__main__":
