@@ -55,6 +55,7 @@ from ground.packet_functions import ax25_callsign, to_int16, to_int32
 def handle_exceptions(exc_type, exc_value, exc_traceback):
     print('Handling exception')
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
+    sys.exit(1)
 
 
 sys.excepthook = handle_exceptions

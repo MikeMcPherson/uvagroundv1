@@ -519,9 +519,13 @@ def queue_receive_packet(ax25_packet, my_ax25_callsign, q_receive_packet, logger
         q_receive_packet.put(ax25_packet)
     else:
         ax25_src_callsign = ax25_callsign(ax25_packet[7:14])
-        logger.info('SRC callsign %s' % (ax25_src_callsign))
+
         is_oa_packet = is_oa_command(ax25_packet)
-        if ax25_src_callsign != my_ax25_callsign:
+        if ax25_src_callsign == my_ax25_callsign:
+            logger.info('Received our own %s TC transmitted packet' % (ax25_src_callsign))
+        elif ax25_src_callsign.startswith('WJ2XMS'):
+            logger.info('Received %s TC loopback packet' % (ax25_src_callsign))
+        else:
             if SppPacket.encrypt_uplink and (ax25_src_callsign == SppPacket.gs_ax25_callsign) and (not is_oa_packet):
                 ax25_packet_temp = SppPacket.gs_cipher.decrypt(ax25_packet)
                 ax25_packet = array.array('B', ax25_packet_temp)
