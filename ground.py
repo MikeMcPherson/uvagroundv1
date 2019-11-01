@@ -24,6 +24,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
 import os
+import sys
 import subprocess
 import configparser
 import logging
@@ -44,16 +45,25 @@ import hexdump
 import random
 from nltk import word_tokenize
 from ground.constant import COMMAND_CODES, COMMAND_NAMES, health_payload_fields, science_payload_fields
-from ground.packet_functions import SppPacket, RadioDevice, GsCipher, kiss_wrap, kiss_unwrap
+from ground.packet_functions import SppPacket, RadioDevice, GsCipher, SequencerDevice, kiss_wrap, kiss_unwrap
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
 from ground.packet_functions import ax25_callsign, to_int16, to_int32
 
+
+def handle_exceptions(exc_type, exc_value, exc_traceback):
+    print('Handling exception')
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
+    sys.exit(1)
+
+
+sys.excepthook = handle_exceptions
+
+
 """
 GUI Handlers
 """
-
 
 class Handler:
     filechooserwindow = None
@@ -62,6 +72,7 @@ class Handler:
     filedialog2_save = False
     label11 = None
     radio = None
+    sequencer = None
     display_spp = True
     display_ax25 = True
 
@@ -88,6 +99,20 @@ class Handler:
             Handler.display_ax25 = True
         else:
             Handler.display_ax25 = False
+
+    def on_rf_amp(self, button, state):
+        SequencerDevice.rf_amp_enabled = state
+        if state:
+            self.sequencer.txamp_enable()
+        else:
+            self.sequencer.txamp_disable()
+
+    def on_uhf_preamp(self, button, state):
+        SequencerDevice.uhf_preamp_enabled = state
+        if state:
+            self.sequencer.uhf_preamp_on()
+        else:
+            self.sequencer.uhf_preamp_off()
 
     def on_dialog1_cancel(self, button):
         dialog1_cancel()
@@ -237,28 +262,40 @@ def process_command(button_label):
         expect_ack = True
 
     elif button_label == 'XMIT_HEALTH':
-        title = '"XMIT_HEALTH" Arguments'
-        labels = ['# Packets', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        defaults = ['1', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
-        tooltips = [
-            '(8-bit) Number of Health Packets to be downlinked.  0xFF means DUMP all outstanding payloads.',
-            'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
-        args = dialog1_run(title, labels, defaults, tooltips)
-        if dialog1_xmit:
-            do_transmit_packet = True
-            do_sn_increment = True
-            if args[0] == 0xFF:
-                expect_ack = False
-                downlink_payloads_pending = 0xFF
-                dump_mode = True
-            else:
-                expect_ack = True
-                downlink_payloads_pending = args[0] * health_payloads_per_packet
-                dump_mode = False
-            tc_data = array.array('B', [0x02])
-            tc_data.append(args[0])
-            tc_packet.set_spp_data(tc_data)
-            tc_packet.set_sequence_number(ground_sequence_number)
+        # title = '"XMIT_HEALTH" Arguments'
+        # labels = ['# Packets', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        # defaults = ['1', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00', '0x00']
+        # tooltips = [
+        #     '(8-bit) Number of Health Packets to be downlinked.  0xFF means DUMP all outstanding payloads.',
+        #     'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        # args = dialog1_run(title, labels, defaults, tooltips)
+        # if dialog1_xmit:
+        #     do_transmit_packet = True
+        #     do_sn_increment = True
+        #     if args[0] == 0xFF:
+        #         expect_ack = False
+        #         downlink_payloads_pending = 0xFF
+        #         dump_mode = True
+        #     else:
+        #         expect_ack = True
+        #         downlink_payloads_pending = args[0] * health_payloads_per_packet
+        #         dump_mode = False
+        #     tc_data = array.array('B', [0x02])
+        #     tc_data.append(args[0])
+        #     tc_packet.set_spp_data(tc_data)
+        #     tc_packet.set_sequence_number(ground_sequence_number)
+        #
+        # For Libertas, Health payloads always 1
+        args = [1]
+        do_transmit_packet = True
+        do_sn_increment = True
+        expect_ack = True
+        downlink_payloads_pending = args[0] * health_payloads_per_packet
+        dump_mode = False
+        tc_data = array.array('B', [0x02])
+        tc_data.append(args[0])
+        tc_packet.set_spp_data(tc_data)
+        tc_packet.set_sequence_number(ground_sequence_number)
 
     elif button_label == 'XMIT_SCIENCE':
         title = '"XMIT_SCIENCE" Arguments'
@@ -578,11 +615,21 @@ def do_destroy(do_save):
     global textview_buffer
     global p_receive_packet
     global gs_xcvr_uhd_pid
+    global radio
+    global sequencer
+    radio.close()
+    sequencer.shutdown()
     textview_buffer.insert(textview_buffer.get_end_iter(), "]\n}\n")
     p_receive_packet.terminate()
     if gs_xcvr_uhd_pid is not None:
         if gs_xcvr_uhd_pid.poll() is None:
             gs_xcvr_uhd_pid.kill()
+    time_utc = time.gmtime()
+    iq_file_string = time.strftime("/zfs0/iqfiles/%Y%m%dT%H%M%SZ.iq", time_utc)
+    try:
+        os.rename('/zfs0/iqfiles/pass_iq.tmp', iq_file_string)
+    except:
+        pass
     if do_save:
         save_file()
     Gtk.main_quit()
@@ -603,7 +650,7 @@ def save_file_as():
     global buffer_saved
     global buffer_filename
     time_utc = time.gmtime()
-    time_string = time.strftime("ground%Y%m%d%H%M%S.json", time_utc)
+    time_string = time.strftime("ground%Y%m%dT%H%M%SZ.json", time_utc)
     Handler.filechooserwindow.set_current_name(time_string)
     Handler.filechooserwindow.run()
     if Handler.filedialog1_save:
@@ -695,7 +742,8 @@ def display_packet():
     values_per_row = 8
 
     if not q_display_packet.empty():
-        tv_header = ('  "sender":"<SENDER>", ' +
+        tv_header = ('  "ground_utc":"<GROUND_UTC>",\n' +
+                     '  "sender":"<SENDER>", ' +
                      '"packet_type":"<PACKET_TYPE>", ' +
                      '"command":"<COMMAND>",\n')
 
@@ -720,6 +768,9 @@ def display_packet():
             first_packet = False
         else:
             textview_buffer.insert(textview_buffer.get_end_iter(), ",\n")
+        ground_utc = time.gmtime()
+        ground_utc_string = time.strftime("%Y%m%dT%H%M%SZ", ground_utc)
+        tv_header = tv_header.replace('<GROUND_UTC>', ground_utc_string)
         if len(ax25_packet) >= 33:
             if ax25_packet[16] == 0x18:
                 dp_packet = SppPacket('TC', dynamic=False)
@@ -971,6 +1022,8 @@ def main():
     global filechooser2window
     global checkbutton1
     global checkbutton2
+    global switch1
+    global switch2
     global buffer_saved
     global buffer_filename
     global entry_objs
@@ -1009,15 +1062,18 @@ def main():
     global sc_ax25_callsign
     global gs_ax25_callsign
     global ax25_badpacket
+    global radio
+    global sequencer
 
     buffer_saved = False
     filedialog_save = False
     first_packet = True
+    ops_mode = None
     radio_server = False
     rx_hostname = 'localhost'
     tx_hostname = 'localhost'
-    rx_port = 9501
-    tx_port = 9500
+    rx_port = 18500
+    tx_port = 18500
 
     dump_mode = False
     my_packet_type = 0x18
@@ -1046,39 +1102,62 @@ def main():
     tc_packets_waiting_for_ack = []
     tm_packets_to_ack = []
     tm_packets_to_nak = []
+    autostart_radio = None
+    sequencer_enable = True
+    sequencer_hostname = None
 
+    script_folder_name = os.path.dirname(os.path.realpath(__file__))
+    ground_ini = script_folder_name + '/' + 'ground.ini'
+    keys_ini = script_folder_name + '/' + 'keys.ini'
+    ground_glade = script_folder_name + '/' + 'ground.glade'
     config = configparser.ConfigParser()
-    config.read(['ground.ini'])
+    config.read([ground_ini])
     debug = config['ground'].getboolean('debug')
     program_name = config['ground']['program_name']
     program_version = config['ground']['program_version']
     src_callsign = config['ground']['callsign']
+    ops_mode = config['ground']['ops_mode']
+    if ops_mode.upper() == 'LOCAL':
+        rx_hostname = config['ground']['rx_hostname_local']
+        tx_hostname = config['ground']['tx_hostname_local']
+        rx_port = int(config['ground']['rx_port_local'])
+        tx_port = int(config['ground']['tx_port_local'])
+        sequencer_enable = True
+        autostart_radio = True
+    elif ops_mode.upper() == 'SIM':
+        rx_hostname = config['ground']['rx_hostname_sim']
+        tx_hostname = config['ground']['tx_hostname_sim']
+        rx_port = int(config['ground']['rx_port_sim'])
+        tx_port = int(config['ground']['tx_port_sim'])
+        sequencer_enable = False
+        autostart_radio = False
+    elif ops_mode.upper() == 'VTGS':
+        rx_hostname = config['ground']['rx_hostname_vtgs']
+        tx_hostname = config['ground']['tx_hostname_vtgs']
+        rx_port = int(config['ground']['rx_port_vtgs'])
+        tx_port = int(config['ground']['tx_port_vtgs'])
+        sequencer_enable = False
+        autostart_radio = False
+    else:
+        print('Invalid ops_mode')
+        sys.exit()
     src_ssid = int(config['ground']['ssid'])
     dst_callsign = config['libertas_sim']['callsign']
     dst_ssid = int(config['libertas_sim']['ssid'])
-    use_flight_frequency = config['comms'].getboolean('use_flight_frequency')
-    if use_flight_frequency:
-        gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd_flight'])
-    else:
-        gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd_dev'])
-    use_flight_keys = config['comms'].getboolean('use_flight_keys')
-    if use_flight_keys:
-        keys_file = 'keys.flight.ini'
-    else:
-        keys_file = 'keys.dev.ini'
+    gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
     turnaround = float(config['comms']['turnaround'])
+    sequencer_hostname = config['ground']['sequencer_hostname']
     encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
     ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
     use_serial = config['comms'].getboolean('use_serial')
     serial_device_name = config['comms']['serial_device_name']
     serial_device_baudrate = int(config['comms']['serial_device_baudrate'])
     use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
-    autostart_radio = config['comms'].getboolean('autostart_radio')
     uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
     downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
 
     config_keys = configparser.ConfigParser()
-    config_keys.read([keys_file])
+    config_keys.read([keys_ini])
     sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
     gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
     oa_key = config_keys['keys']['oa_key'].encode()
@@ -1092,6 +1171,7 @@ def main():
     logging.info('%s %s: Run started', program_name, program_version)
     logger = mp.log_to_stderr()
     logger.setLevel(logging.INFO)
+    # Example: logger.info('Text to log from process %s with pid %s' % (p.name, p.pid))
 
     if use_serial:
         gs_xcvr_uhd_pid = None
@@ -1142,25 +1222,30 @@ def main():
     RadioDevice.use_lithium_cdi = use_lithium_cdi
     RadioDevice.logger = logger
 
+    SequencerDevice.logger = logger
+    sequencer = SequencerDevice(sequencer_enable, sequencer_hostname)
+    Handler.sequencer = sequencer
+
     radio = RadioDevice()
     radio.ack_timeout = ack_timeout * 1.25
     radio.max_retries = max_retries
     radio.open()
     SppPacket.radio = radio
+    RadioDevice.sequencer = sequencer
 
     q_receive_packet = mp.Queue()
     q_display_packet = mp.Queue()
     SppPacket.q_display_packet = q_display_packet
 
     builder = Gtk.Builder()
-    builder.add_from_file("ground.glade")
+    builder.add_from_file(ground_glade)
     builder.connect_signals(Handler())
     appwindow = builder.get_object("applicationwindow1")
     textview = builder.get_object("textview1")
     textview_buffer = textview.get_buffer()
     textview.set_monospace(monospace=True)
-    textview2 = builder.get_object("textview2")
-    textview2_buffer = textview2.get_buffer()
+    # textview2 = builder.get_object("textview2")
+    # textview2_buffer = textview2.get_buffer()
     argwindow = builder.get_object("dialog1")
     filechooserwindow = builder.get_object("filechooserdialog1")
     filechooser2window = builder.get_object("filechooserdialog2")
@@ -1168,6 +1253,10 @@ def main():
     checkbutton1.set_active(True)
     checkbutton2 = builder.get_object('checkbutton2')
     checkbutton2.set_active(True)
+    switch1 = builder.get_object('switch1')
+    switch1.set_active(True)
+    switch2 = builder.get_object('switch2')
+    switch2.set_active(True)
     statusbar1 = builder.get_object('statusbar1')
     entry_objs = [
         builder.get_object("entry2"),
@@ -1202,7 +1291,7 @@ def main():
     Handler.filechooser2window = filechooser2window
     Handler.label11 = label11
 
-    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(gs_ax25_callsign, radio, q_receive_packet, logger))
+    p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(gs_ax25_callsign, radio, q_receive_packet, logger, sequencer))
     p_receive_packet.start()
     process_thread = threading.Thread(name='process_received', target=process_received, daemon=True)
     process_thread.start()
@@ -1212,6 +1301,7 @@ def main():
     GObject.threads_init()
     GObject.timeout_add(500, display_packet)
     Gtk.main()
+    sys.exit()
 
 
 if __name__ == "__main__":

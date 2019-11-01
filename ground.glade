@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.18.3 -->
+<!-- Generated with glade 3.22.1 -->
 <interface>
-  <requires lib="gtk+" version="3.12"/>
+  <requires lib="gtk+" version="3.20"/>
   <object class="GtkFileFilter" id="filefilter1">
     <patterns>
       <pattern>*.json</pattern>
@@ -19,6 +19,9 @@
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">UVa Libertas Ground Station V1.0</property>
     <signal name="destroy" handler="on_destroy" swapped="no"/>
+    <child>
+      <placeholder/>
+    </child>
     <child>
       <object class="GtkBox" id="box1">
         <property name="visible">True</property>
@@ -99,55 +102,6 @@
           <object class="GtkBox" id="box2">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <child>
-              <object class="GtkBox" id="box4">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="orientation">vertical</property>
-                <child>
-                  <object class="GtkLabel" id="label12">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Script (INOP)</property>
-                    <property name="justify">center</property>
-                    <attributes>
-                      <attribute name="weight" value="ultrabold"/>
-                      <attribute name="scale" value="1.3"/>
-                    </attributes>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkScrolledWindow" id="scrolledwindow2">
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="vexpand">True</property>
-                    <property name="shadow_type">in</property>
-                    <property name="min_content_width">200</property>
-                    <child>
-                      <object class="GtkTextView" id="textview2">
-                        <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                      </object>
-                    </child>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">1</property>
-                  </packing>
-                </child>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
             <child>
               <object class="GtkBox" id="box3">
                 <property name="visible">True</property>
@@ -278,7 +232,8 @@
                           <object class="GtkButton" id="button8">
                             <property name="label" translatable="yes">READ_MEM...</property>
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
+                            <property name="sensitive">False</property>
+                            <property name="can_focus">False</property>
                             <property name="receives_default">True</property>
                             <property name="tooltip_text" translatable="yes">Send Read Values From Memory Locations command to spacecraft</property>
                             <signal name="clicked" handler="on_command" swapped="no"/>
@@ -293,7 +248,8 @@
                           <object class="GtkButton" id="button9">
                             <property name="label" translatable="yes">WRITE_MEM...</property>
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
+                            <property name="sensitive">False</property>
+                            <property name="can_focus">False</property>
                             <property name="receives_default">True</property>
                             <property name="tooltip_text" translatable="yes">Send Write Vaues Into Memory Locations command to spacecraft</property>
                             <signal name="clicked" handler="on_command" swapped="no"/>
@@ -348,9 +304,6 @@
                             <property name="position">10</property>
                           </packing>
                         </child>
-                        <child>
-                          <placeholder/>
-                        </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -400,7 +353,7 @@
                         <property name="label" translatable="yes">Packet Display</property>
                         <attributes>
                           <attribute name="weight" value="ultrabold"/>
-                          <attribute name="scale" value="1.3"/>
+                          <attribute name="scale" value="1.2"/>
                         </attributes>
                       </object>
                       <packing>
@@ -419,7 +372,8 @@
                           <object class="GtkCheckButton" id="checkbutton1">
                             <property name="label" translatable="yes">Show TM/TC_Data</property>
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
+                            <property name="sensitive">False</property>
+                            <property name="can_focus">False</property>
                             <property name="receives_default">False</property>
                             <property name="tooltip_text" translatable="yes">Display the raw TM_Data or TC_Data packet contents in the Packets window.</property>
                             <property name="xalign">0</property>
@@ -436,7 +390,8 @@
                           <object class="GtkCheckButton" id="checkbutton2">
                             <property name="label" translatable="yes">Show AX.25 Packet</property>
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
+                            <property name="sensitive">False</property>
+                            <property name="can_focus">False</property>
                             <property name="receives_default">False</property>
                             <property name="tooltip_text" translatable="yes">Display the raw AX.25 packet contents in the Packets window.</property>
                             <property name="xalign">0</property>
@@ -456,58 +411,84 @@
                         <property name="position">1</property>
                       </packing>
                     </child>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">3</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkSeparator" id="separator4">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="padding">8</property>
-                    <property name="position">4</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkSeparator" id="separator2">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="padding">8</property>
-                    <property name="pack_type">end</property>
-                    <property name="position">4</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkBox" id="box5">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="orientation">vertical</property>
                     <child>
-                      <object class="GtkLabel" id="label14">
+                      <object class="GtkSeparator" id="separator4">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Scripting (INOP)</property>
-                        <property name="justify">center</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="label19">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">RF Power Amp</property>
                         <attributes>
                           <attribute name="weight" value="ultrabold"/>
-                          <attribute name="scale" value="1.3"/>
+                          <attribute name="scale" value="1.2"/>
                         </attributes>
                       </object>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">True</property>
-                        <property name="position">0</property>
+                        <property name="position">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkButtonBox">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="orientation">vertical</property>
+                        <property name="layout_style">start</property>
+                        <child>
+                          <object class="GtkSwitch" id="switch1">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="active">True</property>
+                            <signal name="state-set" handler="on_rf_amp" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSeparator" id="separator5">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="label20">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">UHF LNA Preamp</property>
+                        <attributes>
+                          <attribute name="weight" value="ultrabold"/>
+                          <attribute name="scale" value="1.2"/>
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">6</property>
                       </packing>
                     </child>
                     <child>
@@ -517,14 +498,11 @@
                         <property name="orientation">vertical</property>
                         <property name="layout_style">start</property>
                         <child>
-                          <object class="GtkButton" id="button16">
-                            <property name="label">gtk-open</property>
+                          <object class="GtkSwitch" id="switch2">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="tooltip_text" translatable="yes">Load JSON file containing commands to be sent to the spacecraft</property>
-                            <property name="use_stock">True</property>
-                            <signal name="clicked" handler="on_load" swapped="no"/>
+                            <property name="active">True</property>
+                            <signal name="state-set" handler="on_uhf_preamp" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">True</property>
@@ -532,82 +510,18 @@
                             <property name="position">0</property>
                           </packing>
                         </child>
-                        <child>
-                          <object class="GtkButton" id="button17">
-                            <property name="label">gtk-media-play</property>
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="tooltip_text" translatable="yes">Run script from the beginning</property>
-                            <property name="use_stock">True</property>
-                            <signal name="clicked" handler="on_run" swapped="no"/>
-                          </object>
-                          <packing>
-                            <property name="expand">True</property>
-                            <property name="fill">True</property>
-                            <property name="position">1</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkButton" id="button18">
-                            <property name="label">gtk-media-pause</property>
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="tooltip_text" translatable="yes">Pause script execution</property>
-                            <property name="use_stock">True</property>
-                            <signal name="clicked" handler="on_pause" swapped="no"/>
-                          </object>
-                          <packing>
-                            <property name="expand">True</property>
-                            <property name="fill">True</property>
-                            <property name="position">2</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkButton" id="button19">
-                            <property name="label">gtk-media-stop</property>
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="tooltip_text" translatable="yes">Stop script execution and reset to beginning of script</property>
-                            <property name="use_stock">True</property>
-                            <signal name="clicked" handler="on_stop" swapped="no"/>
-                          </object>
-                          <packing>
-                            <property name="expand">True</property>
-                            <property name="fill">True</property>
-                            <property name="position">3</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkButton" id="button20">
-                            <property name="label">gtk-clear</property>
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="tooltip_text" translatable="yes">Clear script</property>
-                            <property name="use_stock">True</property>
-                            <signal name="clicked" handler="on_clear" swapped="no"/>
-                          </object>
-                          <packing>
-                            <property name="expand">True</property>
-                            <property name="fill">True</property>
-                            <property name="position">4</property>
-                          </packing>
-                        </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">True</property>
-                        <property name="position">1</property>
+                        <property name="position">7</property>
                       </packing>
                     </child>
                   </object>
                   <packing>
                     <property name="expand">False</property>
                     <property name="fill">True</property>
-                    <property name="position">5</property>
+                    <property name="position">3</property>
                   </packing>
                 </child>
               </object>
@@ -677,105 +591,6 @@
             <property name="position">1</property>
           </packing>
         </child>
-        <child>
-          <object class="GtkBox" id="box16">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <child>
-              <object class="GtkLabel" id="label15">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Over-the-Air (OA) Commands</property>
-                <attributes>
-                  <attribute name="weight" value="ultrabold"/>
-                </attributes>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButtonBox" id="buttonbox4">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="layout_style">start</property>
-                <child>
-                  <object class="GtkButton" id="button23">
-                    <property name="label" translatable="yes">PING_RETURN</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">True</property>
-                    <signal name="clicked" handler="on_command" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="expand">True</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkButton" id="button24">
-                    <property name="label" translatable="yes">RADIO_RESET</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">True</property>
-                    <signal name="clicked" handler="on_command" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="expand">True</property>
-                    <property name="fill">True</property>
-                    <property name="position">1</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkButton" id="button25">
-                    <property name="label" translatable="yes">PIN_TOGGLE</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">True</property>
-                    <signal name="clicked" handler="on_command" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="expand">True</property>
-                    <property name="fill">True</property>
-                    <property name="position">2</property>
-                  </packing>
-                </child>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkStatusbar" id="statusbar1">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="margin_left">10</property>
-                <property name="margin_right">10</property>
-                <property name="margin_start">10</property>
-                <property name="margin_end">10</property>
-                <property name="margin_top">6</property>
-                <property name="margin_bottom">6</property>
-                <property name="spacing">2</property>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">True</property>
-                <property name="pack_type">end</property>
-                <property name="position">2</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">2</property>
-          </packing>
-        </child>
       </object>
     </child>
   </object>
@@ -785,6 +600,9 @@
     <property name="modal">True</property>
     <property name="type_hint">dialog</property>
     <property name="transient_for">applicationwindow1</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="dialog-vbox1">
         <property name="can_focus">False</property>
@@ -1243,6 +1061,9 @@
     <property name="action">save</property>
     <property name="do_overwrite_confirmation">True</property>
     <signal name="destroy" handler="on_filechooserdialog1_cancel" swapped="no"/>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="filechooserdialog-vbox1">
         <property name="can_focus">False</property>
@@ -1300,6 +1121,9 @@
     <property name="type_hint">dialog</property>
     <property name="transient_for">applicationwindow1</property>
     <signal name="destroy" handler="on_filechooserdialog2_cancel" swapped="no"/>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="filechooserdialog-vbox2">
         <property name="can_focus">False</property>
