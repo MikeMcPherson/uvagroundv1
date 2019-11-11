@@ -9,7 +9,7 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=.
 set BUILDDIR=_build
-set SPHINXPROJ=uvagroundv1
+set SPHINXPROJ=UVaGroundV1
 
 if "%1" == "" goto help
 

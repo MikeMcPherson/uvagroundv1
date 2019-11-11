@@ -4,7 +4,7 @@
 # You can set these variables from the command line.
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
-SPHINXPROJ    = uvagroundv1
+SPHINXPROJ    = UVaGroundV1
 SOURCEDIR     = .
 BUILDDIR      = _build
 

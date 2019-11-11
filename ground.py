@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
-"""
-Simple ground station for the UVa Libertas spacecraft.
+"""Simple ground station for the UVa Libertas spacecraft.
 
-Copyright 2018 by Michael R. McPherson, Charlottesville, VA
+This script implements the UVa Libertas ground station.  It consists of a
+graphical user interface and a set of routines for creating and decoding
+packets sent to and received from the Libertas spacecraft.  It spawns a
+GNU Radio flowgraph that controls the radio, communicating with GNU Radio
+via a TCP socket.  It also communicates with the sequencer over the local
+network via a REST interface.
+
+Copyright 2018, 2019 by Michael R. McPherson, Charlottesville, VA
 mailto:mcpherson@acm.org
 http://www.kq9p.us
 
@@ -57,15 +63,41 @@ def handle_exceptions(exc_type, exc_value, exc_traceback):
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
     sys.exit(1)
 
-
 sys.excepthook = handle_exceptions
 
-
-"""
-GUI Handlers
-"""
-
 class Handler:
+    """Handles the graphical user interface.
+
+    Handler provides methods to handle the active elements in the GUI interface.
+
+    Attributes
+    ----------
+    filechoserwindow : GTK object
+        "Save" dialog window
+    filedialog1_save : bool
+        indicates if there is JSON to save on exit
+    filechooser2window : GTK object
+        "Open" dialog window
+    filedialog2_save : bool
+        indicates if there is a file to open
+    label11 : GTK object
+        input field validation hint
+    radio : Radio instance
+        pointer to the radio instance
+    sequencer : Sequencer instance
+        pointer to the sequencer instance
+    display_spp : bool
+        indicates whether to display the decoded SPP portion of a packet
+    display_ax25 : bool
+        indicates whether to display the decoded AX.25 portion of a packet
+
+    Methods
+    -------
+    Twenty-three-methods
+        one method for each interactive element in the GUI
+
+    """
+
     filechooserwindow = None
     filedialog1_save = False
     filechooser2window = None
@@ -77,6 +109,12 @@ class Handler:
     display_ax25 = True
 
     def on_destroy(self, *args):
+        """Clean up when the program is executed by closing the window.
+
+        If the program is terminated by closing the window, do the cleanup
+        that we would have done if terminated from the menu..
+
+        """
         do_save = True
         do_destroy(do_save)
 
@@ -101,6 +139,19 @@ class Handler:
             Handler.display_ax25 = False
 
     def on_rf_amp(self, button, state):
+        """Enable and disable the RF power amplifier.
+
+        Tell the sequencer to enable or disable the RF power amplifier
+        in transmit mode.
+
+        Parameters
+        ----------
+        button : GTK object
+            The GTK object for the toggle switch
+        state : bool
+            State of the toggle switch
+
+        """
         SequencerDevice.rf_amp_enabled = state
         if state:
             self.sequencer.txamp_enable()
@@ -1117,11 +1168,11 @@ def main():
     program_version = config['ground']['program_version']
     src_callsign = config['ground']['callsign']
     ops_mode = config['ground']['ops_mode']
-    if ops_mode.upper() == 'LOCAL':
-        rx_hostname = config['ground']['rx_hostname_local']
-        tx_hostname = config['ground']['tx_hostname_local']
-        rx_port = int(config['ground']['rx_port_local'])
-        tx_port = int(config['ground']['tx_port_local'])
+    if ops_mode.upper() == 'UVA':
+        rx_hostname = config['ground']['rx_hostname_uva']
+        tx_hostname = config['ground']['tx_hostname_uva']
+        rx_port = int(config['ground']['rx_port_uva'])
+        tx_port = int(config['ground']['tx_port_uva'])
         sequencer_enable = True
         autostart_radio = True
     elif ops_mode.upper() == 'SIM':
@@ -1131,11 +1182,25 @@ def main():
         tx_port = int(config['ground']['tx_port_sim'])
         sequencer_enable = False
         autostart_radio = False
-    elif ops_mode.upper() == 'VTGS':
-        rx_hostname = config['ground']['rx_hostname_vtgs']
-        tx_hostname = config['ground']['tx_hostname_vtgs']
-        rx_port = int(config['ground']['rx_port_vtgs'])
-        tx_port = int(config['ground']['tx_port_vtgs'])
+    elif ops_mode.upper() == 'WALLOPS':
+        rx_hostname = config['ground']['rx_hostname_wallops']
+        tx_hostname = config['ground']['tx_hostname_wallops']
+        rx_port = int(config['ground']['rx_port_wallops'])
+        tx_port = int(config['ground']['tx_port_wallops'])
+        sequencer_enable = False
+        autostart_radio = False
+    elif ops_mode.upper() == 'VT':
+        rx_hostname = config['ground']['rx_hostname_vt']
+        tx_hostname = config['ground']['tx_hostname_vt']
+        rx_port = int(config['ground']['rx_port_vt'])
+        tx_port = int(config['ground']['tx_port_vt'])
+        sequencer_enable = False
+        autostart_radio = False
+    elif ops_mode.upper() == 'ODU':
+        rx_hostname = config['ground']['rx_hostname_odu']
+        tx_hostname = config['ground']['tx_hostname_odu']
+        rx_port = int(config['ground']['rx_port_odu'])
+        tx_port = int(config['ground']['tx_port_odu'])
         sequencer_enable = False
         autostart_radio = False
     else:
