@@ -88,6 +88,8 @@ char readRfPowerString[] = "readRfPower";
 byte mac[] = { 0x2C, 0xF7, 0xF1, 0x08, 0x04, 0x02 };
 IPAddress ip(192,168,10,80);
 EthernetServer server(80);
+unsigned long int txStartTime = 0;
+bool txMode = false;
 
 Adafruit_INA260 txAmpPowerMonitor = Adafruit_INA260();
 Adafruit_INA260 rot2progPowerMonitor = Adafruit_INA260();
@@ -115,15 +117,16 @@ float ulnaVoltage = 0;
 float ulnaCurrent = 0;
 float upolVoltage = 0;
 float upolCurrent = 0;
-int timeStamp = 0;
+unsigned long int timeStamp = 0;
 int ulnaEnabled = FALSE;  // false = 0, true != 0; bool not supported by arest.io
 int txampEnabled = FALSE;
-int txTimeout = 5;  // Timeout in seconds
+int txTimeout = 1500;  // Timeout in milliseconds
 int txampRfPower = 0;
 int txampRfPowerMax = 0;
 
 void setup(void)
 {
+  timeStamp = millis();
   Serial.begin(115200);
 
   // Init pins
@@ -238,8 +241,22 @@ void setup(void)
 }
 
 void loop() {
+  unsigned long int txCurrentTime;
+  unsigned long int txElapsedTime;
   EthernetClient client = server.available();
   rest.handle(client);
+  if (txMode) {
+    txCurrentTime = millis();
+    if (txCurrentTime >= txStartTime) {
+      txElapsedTime = txCurrentTime - txStartTime;
+    } else{
+      txElapsedTime = (4294967295 - txStartTime) + txCurrentTime;
+    }
+    if (txElapsedTime >= txTimeout) {
+      uhfTxModeDisable("");
+      Serial.println("txTimeout expired, returning to RX mode");
+    }
+  }
 //  wdt_reset();
 }
 
@@ -475,6 +492,8 @@ int uhfTxModeEnable(String command) {
   delay(txDelay);
   seqError = 0;
   timeStamp = millis();
+  txStartTime = timeStamp;
+  txMode = true;
   Serial.print("uhfTxModeEnable ");
   Serial.print(command);
   Serial.print(" ");
@@ -490,6 +509,7 @@ int uhfTxModeDisable(String command) {
   ulnaRxMode("");
   seqError = 0;
   timeStamp = millis();
+  txMode = false;
   Serial.print("uhfTxModeDisable ");
   Serial.print(command);
   Serial.print(" ");
