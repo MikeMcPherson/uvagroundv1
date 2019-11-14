@@ -3,7 +3,9 @@
   <component name="ChangeListManager">
     <list default="true" id="c0de4057-71e4-4231-9caa-d870bcfcd790" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ground.ini" beforeDir="false" afterPath="$PROJECT_DIR$/ground.ini" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ground.ini" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ground.ini.example" beforeDir="false" afterPath="$PROJECT_DIR$/ground.ini.example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ground.py" beforeDir="false" afterPath="$PROJECT_DIR$/ground.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
