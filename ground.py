@@ -32,6 +32,7 @@ __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 import os
 import sys
 import subprocess
+from pathlib import Path
 import configparser
 import logging
 import gi
@@ -1157,9 +1158,10 @@ def main():
     sequencer_enable = True
     sequencer_hostname = None
 
+    home_folder_name = str(Path.home())
     script_folder_name = os.path.dirname(os.path.realpath(__file__))
-    ground_ini = script_folder_name + '/' + 'ground.ini'
-    keys_ini = script_folder_name + '/' + 'keys.ini'
+    ground_ini = home_folder_name + '/' + '.ground'
+    keys_ini = home_folder_name + '/' + '.ground.keys'
     ground_glade = script_folder_name + '/' + 'ground.glade'
     config = configparser.ConfigParser()
     config.read([ground_ini])
