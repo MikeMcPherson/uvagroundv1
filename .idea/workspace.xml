@@ -3,8 +3,11 @@
   <component name="ChangeListManager">
     <list default="true" id="c0de4057-71e4-4231-9caa-d870bcfcd790" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/LibertasReadonly.sql" beforeDir="false" afterPath="$PROJECT_DIR$/database/LibertasReadonly.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/LibertasTest.mwb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/LibertasTest.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/json2Libertas.py" beforeDir="false" afterPath="$PROJECT_DIR$/json2Libertas.py" afterDir="false" />
     </list>
-    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -22,29 +25,22 @@
   </component>
   <component name="ProjectId" id="1OTBQMHnySSfaSWx4vj1Jem2NBy" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunDashboard">
-    <option name="ruleStates">
-      <list>
-        <RuleState>
-          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
-        </RuleState>
-        <RuleState>
-          <option name="name" value="StatusDashboardGroupingRule" />
-        </RuleState>
-      </list>
-    </option>
-  </component>
-  <component name="RunManager" selected="Python.request_test">
+  <component name="RunManager" selected="Python.json2Libertas">
     <configuration name="json2Libertas" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="uvagroundv1" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -132,13 +128,13 @@
     <list>
       <item itemvalue="Python.json2Libertas" />
       <item itemvalue="Python.libertas_sim" />
-      <item itemvalue="Python.simDataLibertas" />
       <item itemvalue="Python.request_test" />
+      <item itemvalue="Python.simDataLibertas" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.request_test" />
         <item itemvalue="Python.json2Libertas" />
+        <item itemvalue="Python.request_test" />
         <item itemvalue="Python.simDataLibertas" />
         <item itemvalue="Python.libertas_sim" />
       </list>
@@ -178,5 +174,27 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="WindowStateProjectService">
+    <state width="1373" height="238" key="GridCell.Tab.0.bottom" timestamp="1579904548612">
+      <screen x="0" y="31" width="1680" height="996" />
+    </state>
+    <state width="1373" height="238" key="GridCell.Tab.0.bottom/0.31.1680.996@0.31.1680.996" timestamp="1579904548612" />
+    <state width="1373" height="238" key="GridCell.Tab.0.center" timestamp="1579904548610">
+      <screen x="0" y="31" width="1680" height="996" />
+    </state>
+    <state width="1373" height="238" key="GridCell.Tab.0.center/0.31.1680.996@0.31.1680.996" timestamp="1579904548610" />
+    <state width="1373" height="238" key="GridCell.Tab.0.left" timestamp="1579904548608">
+      <screen x="0" y="31" width="1680" height="996" />
+    </state>
+    <state width="1373" height="238" key="GridCell.Tab.0.left/0.31.1680.996@0.31.1680.996" timestamp="1579904548608" />
+    <state width="1373" height="238" key="GridCell.Tab.0.right" timestamp="1579904548611">
+      <screen x="0" y="31" width="1680" height="996" />
+    </state>
+    <state width="1373" height="238" key="GridCell.Tab.0.right/0.31.1680.996@0.31.1680.996" timestamp="1579904548611" />
+    <state x="329" y="164" width="1022" height="732" key="SettingsEditor" timestamp="1579827648682">
+      <screen x="0" y="31" width="1680" height="996" />
+    </state>
+    <state x="329" y="164" width="1022" height="732" key="SettingsEditor/0.31.1680.996@0.31.1680.996" timestamp="1579827648682" />
   </component>
 </project>

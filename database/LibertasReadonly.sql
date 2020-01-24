@@ -1,4 +1,4 @@
 DROP USER IF EXISTS LibertasReadonly;
-CREATE USER 'LibertasReadonly' IDENTIFIED BY 'G0ing2sPace!';
+CREATE USER 'LibertasReadonly' IDENTIFIED BY 'G0ne2sPace!';
 GRANT USAGE ON *.* TO LibertasReadonly REQUIRE SSL;
-GRANT SELECT ON TABLE `LibertasTest`.* TO 'LibertasReadonly';
+GRANT SELECT ON TABLE `Libertas`.* TO 'LibertasReadonly';
