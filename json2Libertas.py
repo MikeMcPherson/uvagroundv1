@@ -138,7 +138,7 @@ def main():
                 ax25_sha256.update(ax25_random)
                 ax25_digest = binascii.hexlify(ax25_sha256.digest()).decode()
                 ax25_packet_str = str(ax25_packet)
-                sql_data = (time_utc, packet['gps_time'], packet['gps_week'], packet['sender'], packet['packet_type'],
+                sql_data = (packet['ground_utc'], packet['gps_time'], packet['gps_week'], packet['sender'], packet['packet_type'],
                             packet['command'], packet['sequence_number'], packet['ax25_destination'],
                             packet['ax25_source'], ax25_packet_str, ax25_digest)
                 cursor.execute(sql_lA_command, sql_data)
