@@ -1160,9 +1160,9 @@ def main():
 
     home_folder_name = str(Path.home())
     script_folder_name = os.path.dirname(os.path.realpath(__file__))
-    ground_ini = home_folder_name + '/' + '.ground'
-    keys_ini = home_folder_name + '/' + '.ground.keys'
-    ground_glade = script_folder_name + '/' + 'ground.glade'
+    ground_ini = home_folder_name + '/' + '.uvagroundv1'
+    keys_ini = home_folder_name + '/' + '.uvagroundv1.keys'
+    ground_glade = script_folder_name + '/' + 'uvagroundv1.glade'
     config = configparser.ConfigParser()
     config.read([ground_ini])
     debug = config['ground'].getboolean('debug')
