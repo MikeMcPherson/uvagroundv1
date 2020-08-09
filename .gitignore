@@ -1,5 +1,5 @@
 push.sh
-push_master.sh
+push_latest.sh
 start_socat.sh
 *.bak
 *.ini
