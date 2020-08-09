@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 """
-Libertas Simulator V1.0
+Libertas Simulator V1.6
 Simple communications simulator for the UVa Libertas spacecraft.
 
 Copyright 2018, 2020 by Michael R. McPherson, Charlottesville, VA
@@ -43,6 +43,9 @@ from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_in
 
 
 def main():
+
+    program_name = 'Libertas Simulator'
+    program_version = 'V1.6'
 
     """
     Commands
@@ -98,8 +101,6 @@ def main():
     config = configparser.ConfigParser()
     config.read([ground_ini])
     debug = config['libertas_sim'].getboolean('debug')
-    program_name = config['libertas_sim']['program_name']
-    program_version = config['libertas_sim']['program_version']
     radio_server = config['libertas_sim'].getboolean('radio_server')
     rx_hostname = config['libertas_sim']['rx_hostname']
     tx_hostname = config['libertas_sim']['tx_hostname']

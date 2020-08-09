@@ -1117,6 +1117,9 @@ def main():
     global radio
     global sequencer
 
+    program_name = 'UVa Libertas Ground Station'
+    program_version = 'V1.6'
+
     buffer_saved = False
     filedialog_save = False
     first_packet = True
@@ -1166,8 +1169,6 @@ def main():
     config = configparser.ConfigParser()
     config.read([ground_ini])
     debug = config['ground'].getboolean('debug')
-    program_name = config['ground']['program_name']
-    program_version = config['ground']['program_version']
     src_callsign = config['ground']['callsign']
     ops_mode = config['ground']['ops_mode']
     if ops_mode.upper() == 'UVA':
