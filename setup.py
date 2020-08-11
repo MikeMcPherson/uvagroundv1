@@ -13,12 +13,14 @@ setuptools.setup(name="uvagroundv1",
       url="https://github.com/MikeMcPherson/uvagroundv1",
       packages=setuptools.find_packages(),
       install_requires=[
+            "requests",
             "pyserial",
             "hexdump",
             "simonspeckciphers",
             "construct",
             "nltk",
-            "pygobject"
+            "pycairo",
+            "PyGObject"
       ],
       classifiers=[
             "Programming Language :: Python :: 3",
