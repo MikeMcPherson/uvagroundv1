@@ -12,6 +12,14 @@ setuptools.setup(name="uvagroundv1",
       long_description_content_type="text/markdown",
       url="https://github.com/MikeMcPherson/uvagroundv1",
       packages=setuptools.find_packages(),
+      install_requires=[
+            "pyserial",
+            "hexdump",
+            "simonspeckciphers",
+            "construct",
+            "nltk",
+            "pygobject"
+      ],
       classifiers=[
             "Programming Language :: Python :: 3",
             "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
