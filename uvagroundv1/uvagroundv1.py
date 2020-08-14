@@ -33,7 +33,6 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-import configparser
 import logging
 import gi
 gi.require_version('Gtk', '3.0')
@@ -51,6 +50,7 @@ from queue import Empty
 import hexdump
 import random
 from nltk import word_tokenize
+from ground.config_read import ConfigRead
 from ground.constant import COMMAND_CODES, COMMAND_NAMES, health_payload_fields, science_payload_fields
 from ground.packet_functions import SppPacket, RadioDevice, GsCipher, SequencerDevice, kiss_wrap, kiss_unwrap
 from ground.packet_functions import receive_packet, make_ack, make_nak
@@ -1157,80 +1157,81 @@ def main():
     tc_packets_waiting_for_ack = []
     tm_packets_to_ack = []
     tm_packets_to_nak = []
-    autostart_radio = None
+    autostart_radio = True
     sequencer_enable = True
     sequencer_hostname = None
 
     home_folder_name = str(Path.home())
     script_folder_name = os.path.dirname(os.path.realpath(__file__))
-    ground_ini = home_folder_name + '/' + '.uvagroundv1'
-    keys_ini = home_folder_name + '/' + '.uvagroundv1.keys'
     ground_glade = script_folder_name + '/' + 'uvagroundv1.glade'
-    config = configparser.ConfigParser()
-    config.read([ground_ini])
-    debug = config['ground'].getboolean('debug')
-    src_callsign = config['ground']['callsign']
-    ops_mode = config['ground']['ops_mode']
+    config = ConfigRead()
+    if(not config.open_config([home_folder_name, script_folder_name], ".uvagroundv1")):
+        print("Unable to find configuration file .uvagroundv1")
+        sys.exit()
+    debug = config.get_param('ground', 'debug', "bool")
+    src_callsign = config.get_param('ground', 'callsign', "string")
+    ops_mode = config.get_param('ground', 'ops_mode', "string")
     if ops_mode.upper() == 'UVA':
-        rx_hostname = config['ground']['rx_hostname_uva']
-        tx_hostname = config['ground']['tx_hostname_uva']
-        rx_port = int(config['ground']['rx_port_uva'])
-        tx_port = int(config['ground']['tx_port_uva'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_uva', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_uva', "string")
+        rx_port = config.get_param('ground', 'rx_port_uva', "int")
+        tx_port = config.get_param('ground', 'tx_port_uva', "int")
         sequencer_enable = True
         autostart_radio = True
     elif ops_mode.upper() == 'SIM':
-        rx_hostname = config['ground']['rx_hostname_sim']
-        tx_hostname = config['ground']['tx_hostname_sim']
-        rx_port = int(config['ground']['rx_port_sim'])
-        tx_port = int(config['ground']['tx_port_sim'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_sim', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_sim', "string")
+        rx_port = config.get_param('ground', 'rx_port_sim', "int")
+        tx_port = config.get_param('ground', 'tx_port_sim', "int")
         sequencer_enable = False
         autostart_radio = False
     elif ops_mode.upper() == 'WALLOPS':
-        rx_hostname = config['ground']['rx_hostname_wallops']
-        tx_hostname = config['ground']['tx_hostname_wallops']
-        rx_port = int(config['ground']['rx_port_wallops'])
-        tx_port = int(config['ground']['tx_port_wallops'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_wallops', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_wallops', "string")
+        rx_port = config.get_param('ground', 'rx_port_wallops', "int")
+        tx_port = config.get_param('ground', 'tx_port_wallops', "int")
         sequencer_enable = False
         autostart_radio = False
     elif ops_mode.upper() == 'VT':
-        rx_hostname = config['ground']['rx_hostname_vt']
-        tx_hostname = config['ground']['tx_hostname_vt']
-        rx_port = int(config['ground']['rx_port_vt'])
-        tx_port = int(config['ground']['tx_port_vt'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_vt', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_vt', "string")
+        rx_port = config.get_param('ground', 'rx_port_vt', "int")
+        tx_port = config.get_param('ground', 'tx_port_vt', "int")
         sequencer_enable = False
         autostart_radio = False
     elif ops_mode.upper() == 'ODU':
-        rx_hostname = config['ground']['rx_hostname_odu']
-        tx_hostname = config['ground']['tx_hostname_odu']
-        rx_port = int(config['ground']['rx_port_odu'])
-        tx_port = int(config['ground']['tx_port_odu'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_odu', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_odu', "string")
+        rx_port = config.get_param('ground', 'rx_port_odu', "int")
+        tx_port = config.get_param('ground', 'tx_port_odu', "int")
         sequencer_enable = False
         autostart_radio = False
     else:
         print('Invalid ops_mode')
         sys.exit()
-    src_ssid = int(config['ground']['ssid'])
-    dst_callsign = config['libertas_sim']['callsign']
-    dst_ssid = int(config['libertas_sim']['ssid'])
-    gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
-    turnaround = float(config['comms']['turnaround'])
-    sequencer_hostname = config['ground']['sequencer_hostname']
-    encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
-    ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
-    use_serial = config['comms'].getboolean('use_serial')
-    serial_device_name = config['comms']['serial_device_name']
-    serial_device_baudrate = int(config['comms']['serial_device_baudrate'])
-    use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
-    uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
-    downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
+    src_ssid = config.get_param('ground', 'ssid', "int")
+    dst_callsign = config.get_param('libertas_sim', 'callsign', "string")
+    dst_ssid = config.get_param('libertas_sim', 'ssid', "int")
+    gs_xcvr_uhd = config.get_param('comms', 'gs_xcvr_uhd', "path")
+    turnaround = config.get_param('comms', 'turnaround', "float")
+    sequencer_hostname = config.get_param('ground', 'sequencer_hostname', "string")
+    encrypt_uplink = config.get_param('comms', 'encrypt_uplink', "bool")
+    ground_maxsize_packets = config.get_param('comms', 'ground_maxsize_packets', "bool")
+    use_serial = config.get_param('comms', 'use_serial', "bool")
+    serial_device_name = config.get_param('comms', 'serial_device_name', "string")
+    serial_device_baudrate = config.get_param('comms', 'serial_device_baudrate', "int")
+    use_lithium_cdi = config.get_param('comms', 'use_lithium_cdi', "bool")
+    uplink_simulated_error_rate = config.get_param('comms', 'uplink_simulated_error_rate', "string")
+    downlink_simulated_error_rate = config.get_param('comms', 'downlink_simulated_error_rate', "string")
 
-    config_keys = configparser.ConfigParser()
-    config_keys.read([keys_ini])
-    sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
-    gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
-    oa_key = config_keys['keys']['oa_key'].encode()
-    gs_encryption_key = config_keys['keys']['gs_encryption_key'].encode()
-    gs_iv = config_keys['keys']['gs_iv'].encode()
+    config_keys = ConfigRead()
+    if(not config_keys.open_config([home_folder_name, script_folder_name], ".uvagroundv1.keys")):
+        print("Unable to find configuration file .uvagroundv1.keys")
+    sc_mac_key = config_keys.get_param('keys', 'sc_mac_key', "key")
+    gs_mac_key = config_keys.get_param('keys', 'gs_mac_key', "key")
+    oa_key = config_keys.get_param('keys', 'oa_key', "key")
+    gs_encryption_key = config_keys.get_param('keys', 'gs_encryption_key', "key")
+    gs_iv = config_keys.get_param('keys', 'gs_iv', "key")
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')

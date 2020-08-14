@@ -38,20 +38,39 @@ class ConfigRead:
 
     Methods
     -------
-    get_param(param_group, param_name)
+    open_config(configfile_path, configfile_name)
+        Search paths in array configfile_path for configfile_name, open, and import
+    get_param(param_group, param_name, param_type)
         Return value of "parameter_name"
 
     """
 
-    def __init__(self, configfile_path, configfile_name):
+    def __init__(self):
         self.config = configparser.ConfigParser()
+
+    def open_config(self, configfile_path, configfile_name):
+        config_file_found = False
         for path in configfile_path:
-            config_file = '/'.join[path, configfile_name]
+            config_file = '/'.join([path, configfile_name])
             if(os.path.isfile(config_file)):
                 self.config.read(config_file)
-        print(f"Unable to find configuration file {configfile_name}")
-        sys.exit()
+                config_file_found = True
+        return config_file_found
 
+    def get_param(self, param_group, param_name, param_type):
 
-    def get_param(self, param_group, param_name):
-        return self.config[param_group][param_name]
+        if(param_type is "int"):
+            return int(self.config[param_group][param_name])
+        elif(param_type is "float"):
+            return float(self.config[param_group][param_name])
+        elif(param_type is "bool"):
+            return self.config[param_group].getboolean(param_name)
+        elif(param_type is "key"):
+            return self.config[param_group][param_name].encode()
+        elif(param_type is "path"):
+            return os.path.expandvars(self.config[param_group][param_name])
+        elif(param_type is "string"):
+            return self.config[param_group][param_name]
+        else:
+            print("Unknown param_type {param_type}")
+            sys.exit()
