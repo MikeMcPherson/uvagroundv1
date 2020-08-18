@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 """
 Libertas Simulator V1.6
@@ -29,10 +29,7 @@ import sys
 from pathlib import Path
 import logging
 import array
-import serial
 import hexdump
-import random
-import socket
 import multiprocessing as mp
 from queue import Empty
 from inspect import currentframe

@@ -40,16 +40,10 @@ from gi.repository import Gtk
 from gi.repository import GObject
 import array
 import time
-import serial
 import json
 import threading
-import pprint
-import socket
 import multiprocessing as mp
 from queue import Empty
-import hexdump
-import random
-from nltk import word_tokenize
 from ground.config_read import ConfigRead
 from ground.constant import COMMAND_CODES, COMMAND_NAMES, health_payload_fields, science_payload_fields
 from ground.packet_functions import SppPacket, RadioDevice, GsCipher, SequencerDevice, kiss_wrap, kiss_unwrap
@@ -185,21 +179,6 @@ class Handler:
     def on_filechooserdialog1_save(self, button):
         self.filechooserwindow.hide()
         Handler.filedialog1_save = True
-
-    def on_load(self, button):
-        load_file()
-
-    def on_run(self, button):
-        pass
-
-    def on_pause(self, button):
-        pass
-
-    def on_stop(self, button):
-        pass
-
-    def on_clear(self, button):
-        script_clear()
 
     def on_filechooserdialog2_cancel(self, button):
         self.filechooser2window.hide()
@@ -735,43 +714,6 @@ def hex_tabulate(buffer, values_per_row):
         else:
             buffer_string = buffer_string + '\n'
     return(buffer_string)
-
-
-"""
-Scripting
-"""
-
-def load_file():
-    global filechooser2window
-    global textview2_buffer
-    filechooser2window.run()
-    if Handler.filedialog2_save:
-        script_filename = filechooser2window.get_filename()
-        fp = open(script_filename, 'r')
-        lines = fp.readlines()
-        fp.close()
-        start_iter = textview2_buffer.get_start_iter()
-        end_iter = textview2_buffer.get_end_iter()
-        textview2_buffer.delete(start_iter, end_iter)
-        commands = []
-        for line in lines:
-            command_tokens = word_tokenize(line)
-            if len(command_tokens) > 0:
-                if command_tokens[0] != '#':
-                    command_line = (' ').join(command_tokens) + '\n'
-                    start_iter = textview2_buffer.get_end_iter()
-                    textview2_buffer.insert(start_iter, command_line, -1)
-                    end_iter = textview2_buffer.get_end_iter()
-                    commands.append([command_tokens, start_iter, end_iter])
-
-        Handler.filedialog2_save = False
-
-
-def script_clear():
-    global textview2_buffer
-    start_iter = textview2_buffer.get_start_iter()
-    end_iter = textview2_buffer.get_end_iter()
-    textview2_buffer.delete(start_iter, end_iter)
 
 
 """

@@ -1,0 +1,7 @@
+pyserial
+hexdump
+construct
+simonspeckciphers
+pycairo
+PyGObject
+requests
