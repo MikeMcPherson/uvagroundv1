@@ -110,7 +110,7 @@ def main():
     dst_ssid = config.get_param('ground', 'ssid', "int")
     src_callsign = config.get_param('libertas_sim', 'callsign', "string")
     src_ssid = config.get_param('libertas_sim', 'ssid', "int")
-    turnaround = config.get_param('comms', 'turnaround', "float")
+    turnaround = config.get_param('comms', 'turnaround', "int")
     encrypt_uplink = config.get_param('comms', 'encrypt_uplink', "bool")
     ground_maxsize_packets = config.get_param('comms', 'ground_maxsize_packets', "bool")
     use_serial = config.get_param('comms', 'use_serial', "bool")

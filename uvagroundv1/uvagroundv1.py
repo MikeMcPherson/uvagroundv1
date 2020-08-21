@@ -1155,7 +1155,7 @@ def main():
     dst_callsign = config.get_param('libertas_sim', 'callsign', "string")
     dst_ssid = config.get_param('libertas_sim', 'ssid', "int")
     gs_xcvr_uhd = config.get_param('comms', 'gs_xcvr_uhd', "path")
-    turnaround = config.get_param('comms', 'turnaround', "float")
+    turnaround = config.get_param('comms', 'turnaround', "int")
     sequencer_hostname = config.get_param('ground', 'sequencer_hostname', "string")
     encrypt_uplink = config.get_param('comms', 'encrypt_uplink', "bool")
     ground_maxsize_packets = config.get_param('comms', 'ground_maxsize_packets', "bool")
