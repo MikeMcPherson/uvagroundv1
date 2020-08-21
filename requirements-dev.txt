@@ -3,6 +3,8 @@ hexdump
 construct
 simonspeckciphers
 requests
+wheel
+pyinstaller
 #
 # PyGObject needs some dependencies that can't be installed
 # with pip.  Before using this requirements file, 

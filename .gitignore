@@ -5,6 +5,7 @@ start_socat.sh
 *.ini
 *.json
 *.pem
+.idea
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

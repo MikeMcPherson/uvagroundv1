@@ -9,18 +9,18 @@ GNU Radio flowgraph that controls the radio, communicating with GNU Radio
 via a TCP socket.  It also communicates with the sequencer over the local
 network via a REST interface.
 
-Copyright 2018, 2019 by Michael R. McPherson, Charlottesville, VA
+Copyright 2018, 2019, 2020 by Michael R. McPherson, Charlottesville, VA
 mailto:mcpherson@acm.org
 http://www.kq9p.us
 
 This program is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the Free
-Software Foundation; either version 2 of the License, or (at your option) any
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3 of the License, or (at your option) any
 later version.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+PARTICULAR PURPOSE.  See the GNU General Public License for more
 details.
 
 You should have received a copy of the GNU General Public License along with
@@ -33,7 +33,6 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-import configparser
 import logging
 import gi
 gi.require_version('Gtk', '3.0')
@@ -41,16 +40,11 @@ from gi.repository import Gtk
 from gi.repository import GObject
 import array
 import time
-import serial
 import json
 import threading
-import pprint
-import socket
 import multiprocessing as mp
 from queue import Empty
-import hexdump
-import random
-from nltk import word_tokenize
+from ground.config_read import ConfigRead
 from ground.constant import COMMAND_CODES, COMMAND_NAMES, health_payload_fields, science_payload_fields
 from ground.packet_functions import SppPacket, RadioDevice, GsCipher, SequencerDevice, kiss_wrap, kiss_unwrap
 from ground.packet_functions import receive_packet, make_ack, make_nak
@@ -185,21 +179,6 @@ class Handler:
     def on_filechooserdialog1_save(self, button):
         self.filechooserwindow.hide()
         Handler.filedialog1_save = True
-
-    def on_load(self, button):
-        load_file()
-
-    def on_run(self, button):
-        pass
-
-    def on_pause(self, button):
-        pass
-
-    def on_stop(self, button):
-        pass
-
-    def on_clear(self, button):
-        script_clear()
 
     def on_filechooserdialog2_cancel(self, button):
         self.filechooser2window.hide()
@@ -738,43 +717,6 @@ def hex_tabulate(buffer, values_per_row):
 
 
 """
-Scripting
-"""
-
-def load_file():
-    global filechooser2window
-    global textview2_buffer
-    filechooser2window.run()
-    if Handler.filedialog2_save:
-        script_filename = filechooser2window.get_filename()
-        fp = open(script_filename, 'r')
-        lines = fp.readlines()
-        fp.close()
-        start_iter = textview2_buffer.get_start_iter()
-        end_iter = textview2_buffer.get_end_iter()
-        textview2_buffer.delete(start_iter, end_iter)
-        commands = []
-        for line in lines:
-            command_tokens = word_tokenize(line)
-            if len(command_tokens) > 0:
-                if command_tokens[0] != '#':
-                    command_line = (' ').join(command_tokens) + '\n'
-                    start_iter = textview2_buffer.get_end_iter()
-                    textview2_buffer.insert(start_iter, command_line, -1)
-                    end_iter = textview2_buffer.get_end_iter()
-                    commands.append([command_tokens, start_iter, end_iter])
-
-        Handler.filedialog2_save = False
-
-
-def script_clear():
-    global textview2_buffer
-    start_iter = textview2_buffer.get_start_iter()
-    end_iter = textview2_buffer.get_end_iter()
-    textview2_buffer.delete(start_iter, end_iter)
-
-
-"""
 Display packet in scrolling window
 """
 
@@ -1117,6 +1059,9 @@ def main():
     global radio
     global sequencer
 
+    program_name = 'UVa Libertas Ground Station'
+    program_version = 'V1.6'
+
     buffer_saved = False
     filedialog_save = False
     first_packet = True
@@ -1154,82 +1099,81 @@ def main():
     tc_packets_waiting_for_ack = []
     tm_packets_to_ack = []
     tm_packets_to_nak = []
-    autostart_radio = None
+    autostart_radio = True
     sequencer_enable = True
     sequencer_hostname = None
 
     home_folder_name = str(Path.home())
     script_folder_name = os.path.dirname(os.path.realpath(__file__))
-    ground_ini = home_folder_name + '/' + '.ground'
-    keys_ini = home_folder_name + '/' + '.ground.keys'
-    ground_glade = script_folder_name + '/' + 'ground.glade'
-    config = configparser.ConfigParser()
-    config.read([ground_ini])
-    debug = config['ground'].getboolean('debug')
-    program_name = config['ground']['program_name']
-    program_version = config['ground']['program_version']
-    src_callsign = config['ground']['callsign']
-    ops_mode = config['ground']['ops_mode']
+    ground_glade = script_folder_name + '/' + 'uvagroundv1.glade'
+    config = ConfigRead()
+    if(not config.open_config([home_folder_name, script_folder_name], ".uvagroundv1")):
+        print("Unable to find configuration file .uvagroundv1")
+        sys.exit()
+    debug = config.get_param('ground', 'debug', "bool")
+    src_callsign = config.get_param('ground', 'callsign', "string")
+    ops_mode = config.get_param('ground', 'ops_mode', "string")
     if ops_mode.upper() == 'UVA':
-        rx_hostname = config['ground']['rx_hostname_uva']
-        tx_hostname = config['ground']['tx_hostname_uva']
-        rx_port = int(config['ground']['rx_port_uva'])
-        tx_port = int(config['ground']['tx_port_uva'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_uva', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_uva', "string")
+        rx_port = config.get_param('ground', 'rx_port_uva', "int")
+        tx_port = config.get_param('ground', 'tx_port_uva', "int")
         sequencer_enable = True
         autostart_radio = True
     elif ops_mode.upper() == 'SIM':
-        rx_hostname = config['ground']['rx_hostname_sim']
-        tx_hostname = config['ground']['tx_hostname_sim']
-        rx_port = int(config['ground']['rx_port_sim'])
-        tx_port = int(config['ground']['tx_port_sim'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_sim', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_sim', "string")
+        rx_port = config.get_param('ground', 'rx_port_sim', "int")
+        tx_port = config.get_param('ground', 'tx_port_sim', "int")
         sequencer_enable = False
         autostart_radio = False
     elif ops_mode.upper() == 'WALLOPS':
-        rx_hostname = config['ground']['rx_hostname_wallops']
-        tx_hostname = config['ground']['tx_hostname_wallops']
-        rx_port = int(config['ground']['rx_port_wallops'])
-        tx_port = int(config['ground']['tx_port_wallops'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_wallops', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_wallops', "string")
+        rx_port = config.get_param('ground', 'rx_port_wallops', "int")
+        tx_port = config.get_param('ground', 'tx_port_wallops', "int")
         sequencer_enable = False
         autostart_radio = False
     elif ops_mode.upper() == 'VT':
-        rx_hostname = config['ground']['rx_hostname_vt']
-        tx_hostname = config['ground']['tx_hostname_vt']
-        rx_port = int(config['ground']['rx_port_vt'])
-        tx_port = int(config['ground']['tx_port_vt'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_vt', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_vt', "string")
+        rx_port = config.get_param('ground', 'rx_port_vt', "int")
+        tx_port = config.get_param('ground', 'tx_port_vt', "int")
         sequencer_enable = False
         autostart_radio = False
     elif ops_mode.upper() == 'ODU':
-        rx_hostname = config['ground']['rx_hostname_odu']
-        tx_hostname = config['ground']['tx_hostname_odu']
-        rx_port = int(config['ground']['rx_port_odu'])
-        tx_port = int(config['ground']['tx_port_odu'])
+        rx_hostname = config.get_param('ground', 'rx_hostname_odu', "string")
+        tx_hostname = config.get_param('ground', 'tx_hostname_odu', "string")
+        rx_port = config.get_param('ground', 'rx_port_odu', "int")
+        tx_port = config.get_param('ground', 'tx_port_odu', "int")
         sequencer_enable = False
         autostart_radio = False
     else:
         print('Invalid ops_mode')
         sys.exit()
-    src_ssid = int(config['ground']['ssid'])
-    dst_callsign = config['libertas_sim']['callsign']
-    dst_ssid = int(config['libertas_sim']['ssid'])
-    gs_xcvr_uhd = os.path.expandvars(config['comms']['gs_xcvr_uhd'])
-    turnaround = float(config['comms']['turnaround'])
-    sequencer_hostname = config['ground']['sequencer_hostname']
-    encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
-    ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
-    use_serial = config['comms'].getboolean('use_serial')
-    serial_device_name = config['comms']['serial_device_name']
-    serial_device_baudrate = int(config['comms']['serial_device_baudrate'])
-    use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
-    uplink_simulated_error_rate = config['comms']['uplink_simulated_error_rate']
-    downlink_simulated_error_rate = config['comms']['downlink_simulated_error_rate']
+    src_ssid = config.get_param('ground', 'ssid', "int")
+    dst_callsign = config.get_param('libertas_sim', 'callsign', "string")
+    dst_ssid = config.get_param('libertas_sim', 'ssid', "int")
+    gs_xcvr_uhd = config.get_param('comms', 'gs_xcvr_uhd', "path")
+    turnaround = config.get_param('comms', 'turnaround', "int")
+    sequencer_hostname = config.get_param('ground', 'sequencer_hostname', "string")
+    encrypt_uplink = config.get_param('comms', 'encrypt_uplink', "bool")
+    ground_maxsize_packets = config.get_param('comms', 'ground_maxsize_packets', "bool")
+    use_serial = config.get_param('comms', 'use_serial', "bool")
+    serial_device_name = config.get_param('comms', 'serial_device_name', "string")
+    serial_device_baudrate = config.get_param('comms', 'serial_device_baudrate', "int")
+    use_lithium_cdi = config.get_param('comms', 'use_lithium_cdi', "bool")
+    uplink_simulated_error_rate = config.get_param('comms', 'uplink_simulated_error_rate', "string")
+    downlink_simulated_error_rate = config.get_param('comms', 'downlink_simulated_error_rate', "string")
 
-    config_keys = configparser.ConfigParser()
-    config_keys.read([keys_ini])
-    sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
-    gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
-    oa_key = config_keys['keys']['oa_key'].encode()
-    gs_encryption_key = config_keys['keys']['gs_encryption_key'].encode()
-    gs_iv = config_keys['keys']['gs_iv'].encode()
+    config_keys = ConfigRead()
+    if(not config_keys.open_config([home_folder_name, script_folder_name], ".uvagroundv1.keys")):
+        print("Unable to find configuration file .uvagroundv1.keys")
+    sc_mac_key = config_keys.get_param('keys', 'sc_mac_key', "key")
+    gs_mac_key = config_keys.get_param('keys', 'gs_mac_key', "key")
+    oa_key = config_keys.get_param('keys', 'oa_key', "key")
+    gs_encryption_key = config_keys.get_param('keys', 'gs_encryption_key', "key")
+    gs_iv = config_keys.get_param('keys', 'gs_iv', "key")
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')

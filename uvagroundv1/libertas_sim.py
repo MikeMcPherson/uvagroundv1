@@ -1,21 +1,21 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 """
-Libertas Simulator V1.0
+Libertas Simulator V1.6
 Simple communications simulator for the UVa Libertas spacecraft.
 
-Copyright 2018 by Michael R. McPherson, Charlottesville, VA
+Copyright 2018, 2020 by Michael R. McPherson, Charlottesville, VA
 mailto:mcpherson@acm.org
 http://www.kq9p.us
 
 This program is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the Free
+the terms of the GNU General Public License as published by the Free
 Software Foundation; either version 2 of the License, or (at your option) any
 later version.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+PARTICULAR PURPOSE.  See the GNU General Public License for more
 details.
 
 You should have received a copy of the GNU General Public License along with
@@ -25,24 +25,26 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 __author__ = 'Michael R. McPherson <mcpherson@acm.org>'
 
 import os
-import configparser
+import sys
+from pathlib import Path
 import logging
 import array
-import serial
 import hexdump
-import random
-import socket
 import multiprocessing as mp
 from queue import Empty
 from inspect import currentframe
 import random
-from ground.packet_functions import SppPacket, RadioDevice, GsCipher
+from ground.config_read import ConfigRead
+from ground.packet_functions import SppPacket, RadioDevice, SequencerDevice, GsCipher
 from ground.packet_functions import receive_packet, make_ack, make_nak
 from ground.packet_functions import to_bigendian, from_bigendian, to_fake_float, from_fake_float
 from ground.packet_functions import init_ax25_header, init_ax25_badpacket, sn_increment, sn_decrement
 
 
 def main():
+
+    program_name = 'Libertas Simulator'
+    program_version = 'V1.6'
 
     """
     Commands
@@ -92,37 +94,37 @@ def main():
     tx_port = 19500
 
     cf = currentframe()
+    home_folder_name = str(Path.home())
     script_folder_name = os.path.dirname(os.path.realpath(__file__))
-    ground_ini = script_folder_name + '/' + 'ground.ini'
-    keys_ini = script_folder_name + '/' + 'keys.ini'
-    config = configparser.ConfigParser()
-    config.read([ground_ini])
-    debug = config['libertas_sim'].getboolean('debug')
-    program_name = config['libertas_sim']['program_name']
-    program_version = config['libertas_sim']['program_version']
-    radio_server = config['libertas_sim'].getboolean('radio_server')
-    rx_hostname = config['libertas_sim']['rx_hostname']
-    tx_hostname = config['libertas_sim']['tx_hostname']
-    rx_port = int(config['libertas_sim']['rx_port'])
-    tx_port = int(config['libertas_sim']['tx_port'])
-    dst_callsign = config['ground']['callsign']
-    dst_ssid = int(config['ground']['ssid'])
-    src_callsign = config['libertas_sim']['callsign']
-    src_ssid = int(config['libertas_sim']['ssid'])
-    turnaround = int(config['comms']['turnaround'])
-    encrypt_uplink = config['comms'].getboolean('encrypt_uplink')
-    ground_maxsize_packets = config['comms'].getboolean('ground_maxsize_packets')
-    use_serial = config['comms'].getboolean('use_serial')
-    serial_device_name = config['comms']['serial_device_name']
-    use_lithium_cdi = config['comms'].getboolean('use_lithium_cdi')
+    config = ConfigRead()
+    if(not config.open_config([home_folder_name, script_folder_name], ".uvagroundv1")):
+        print("Unable to find configuration file .uvagroundv1")
+        sys.exit()
+    debug = config.get_param('libertas_sim', 'debug', "bool")
+    radio_server = config.get_param('libertas_sim', 'radio_server', "bool")
+    rx_hostname = config.get_param('libertas_sim', 'rx_hostname', "string")
+    tx_hostname = config.get_param('libertas_sim', 'tx_hostname', "string")
+    rx_port = config.get_param('libertas_sim', 'rx_port', "int")
+    tx_port = config.get_param('libertas_sim', 'tx_port', "int")
+    dst_callsign = config.get_param('ground', 'callsign', "string")
+    dst_ssid = config.get_param('ground', 'ssid', "int")
+    src_callsign = config.get_param('libertas_sim', 'callsign', "string")
+    src_ssid = config.get_param('libertas_sim', 'ssid', "int")
+    turnaround = config.get_param('comms', 'turnaround', "int")
+    encrypt_uplink = config.get_param('comms', 'encrypt_uplink', "bool")
+    ground_maxsize_packets = config.get_param('comms', 'ground_maxsize_packets', "bool")
+    use_serial = config.get_param('comms', 'use_serial', "bool")
+    serial_device_name = config.get_param('comms', 'serial_device_name', "string")
+    use_lithium_cdi = config.get_param('comms', 'use_lithium_cdi', "bool")
 
-    config_keys = configparser.ConfigParser()
-    config_keys.read([keys_ini])
-    sc_mac_key = config_keys['keys']['sc_mac_key'].encode()
-    gs_mac_key = config_keys['keys']['gs_mac_key'].encode()
-    oa_key = config_keys['keys']['oa_key'].encode()
-    gs_encryption_key = config_keys['keys']['gs_encryption_key'].encode()
-    gs_iv = config_keys['keys']['gs_iv'].encode()
+    config_keys = ConfigRead()
+    if(not config_keys.open_config([home_folder_name, script_folder_name], ".uvagroundv1.keys")):
+        print("Unable to find configuration file .uvagroundv1.keys")
+    sc_mac_key = config_keys.get_param('keys', 'sc_mac_key', "key")
+    gs_mac_key = config_keys.get_param('keys', 'gs_mac_key', "key")
+    oa_key = config_keys.get_param('keys', 'oa_key', "key")
+    gs_encryption_key = config_keys.get_param('keys', 'gs_encryption_key', "key")
+    gs_iv = config_keys.get_param('keys', 'gs_iv', "key")
 
     if debug:
         logging.basicConfig(filename='ground.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
@@ -186,12 +188,16 @@ def main():
     radio.open()
     SppPacket.radio = radio
 
+    SequencerDevice.logger = logger
+    sequencer = SequencerDevice(False, "")
+
     q_receive_packet = mp.Queue()
     q_display_packet = mp.Queue()
     SppPacket.q_display_packet = q_display_packet
 
     p_receive_packet = mp.Process(target=receive_packet, name='receive_packet', args=(sc_ax25_callsign, radio,
-                                                                                      q_receive_packet, logger))
+                                                                                      q_receive_packet, logger,
+                                                                                      sequencer))
     p_receive_packet.daemon = True
     p_receive_packet.start()
     logger.info("%s %s", program_name, program_version)
